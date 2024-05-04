@@ -30,7 +30,9 @@ public class APIInteraction
         Response = res;
         Parameters = parameters;
 
-        parser = MultipartFormDataParser.Parse(Request.InputStream, Request.ContentEncoding);
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+        if (Request.InputStream != null)
+            parser = MultipartFormDataParser.Parse(Request.InputStream, Request.ContentEncoding);
 
         var forward = Request.Headers.Get("X-Forwarded-For");
         RemoteIP = string.IsNullOrEmpty(forward) ? Request.RemoteEndPoint.Address : IPAddress.Parse(forward.Split(",").First());
@@ -50,7 +52,6 @@ public class APIInteraction
         if (parser == null)
         {
             data = null!;
-            Logger.Log("Parser is null", LoggingTarget.General, LogLevel.Error);
             return false;
         }
 
