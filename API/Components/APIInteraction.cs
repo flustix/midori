@@ -31,7 +31,7 @@ public class APIInteraction
         Parameters = parameters;
 
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-        if (Request.InputStream != null)
+        if (Request.InputStream != null && Request.InputStream != Stream.Null)
             parser = MultipartFormDataParser.Parse(Request.InputStream, Request.ContentEncoding);
 
         var forward = Request.Headers.Get("X-Forwarded-For");
