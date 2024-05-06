@@ -8,6 +8,7 @@
     <PackageId>flustix.Midori</PackageId>
     <Description>Simple utility lib to avoid copy-pasing the same code.</Description>
     <Authors>flustix</Authors>
+    <RepositoryUrl>https://github.com/flustix/midori</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
