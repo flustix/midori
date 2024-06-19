@@ -61,6 +61,9 @@ public class APIInteraction
         return data != null;
     }
 
+    public FilePart? GetFile(string name)
+        => TryGetFile(name, out var file) ? file : null;
+
     #region Route Parameters
 
     private bool tryGetParameter(string name, out string value)
@@ -84,6 +87,29 @@ public class APIInteraction
         return false;
     }
 
+    public string? GetStringParameter(string name)
+        => tryGetParameter(name, out var value) ? value : null;
+
+    public bool TryGetIntParameter(string name, out int value)
+    {
+        if (tryGetParameter(name, out var str) && int.TryParse(str, out value))
+            return true;
+
+        if (RespondOnInvalidParameter)
+            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidParameter(name, "int")).Wait();
+
+        value = 0;
+        return false;
+    }
+
+    public int? GetIntParameter(string name)
+    {
+        if (tryGetParameter(name, out var str) && int.TryParse(str, out var value))
+            return value;
+
+        return null;
+    }
+
     public bool TryGetLongParameter(string name, out long value)
     {
         if (tryGetParameter(name, out var str) && long.TryParse(str, out value))
@@ -94,6 +120,14 @@ public class APIInteraction
 
         value = 0;
         return false;
+    }
+
+    public long? GetLongParameter(string name)
+    {
+        if (tryGetParameter(name, out var str) && long.TryParse(str, out var value))
+            return value;
+
+        return null;
     }
 
     #endregion
@@ -128,6 +162,26 @@ public class APIInteraction
     public string? GetStringQuery(string name)
         => tryGetQuery(name, out var value) ? value : null;
 
+    public bool TryGetIntQuery(string name, out int value)
+    {
+        if (tryGetQuery(name, out var str) && int.TryParse(str, out value))
+            return true;
+
+        if (RespondOnInvalidParameter)
+            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidQuery(name, "int")).Wait();
+
+        value = 0;
+        return false;
+    }
+
+    public int? GetIntQuery(string name)
+    {
+        if (tryGetQuery(name, out var str) && int.TryParse(str, out var value))
+            return value;
+
+        return null;
+    }
+
     public bool TryGetLongQuery(string name, out long value)
     {
         if (tryGetQuery(name, out var str) && long.TryParse(str, out value))
@@ -140,9 +194,9 @@ public class APIInteraction
         return false;
     }
 
-    public int? GetIntQuery(string name)
+    public long? GetLongQuery(string name)
     {
-        if (tryGetQuery(name, out var str) && int.TryParse(str, out var value))
+        if (tryGetQuery(name, out var str) && long.TryParse(str, out var value))
             return value;
 
         return null;
@@ -176,6 +230,9 @@ public class APIInteraction
 
         return false;
     }
+
+    public string? GetStringHeader(string name)
+        => tryGetHeader(name, out var value) ? value : null;
 
     #endregion
 
