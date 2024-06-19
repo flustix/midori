@@ -13,6 +13,8 @@ public class APIInteraction
     protected virtual string[] AllowedMethods => new[] { "GET", "POST", "PUT", "DELETE", "OPTIONS" };
     protected virtual string[] AllowedHeaders => new[] { "Content-Type", "Authorization", "X-Requested-With", "X-Forwarded-For" };
 
+    protected virtual bool RespondOnInvalidParameter => true;
+
     protected Logger Logger { get; } = Logger.GetLogger("API");
 
     public HttpListenerRequest Request { get; private set; } = null!;
@@ -76,7 +78,9 @@ public class APIInteraction
         if (tryGetParameter(name, out value))
             return true;
 
-        ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidParameter(name, "string")).Wait();
+        if (RespondOnInvalidParameter)
+            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidParameter(name, "string")).Wait();
+
         return false;
     }
 
@@ -85,7 +89,9 @@ public class APIInteraction
         if (tryGetParameter(name, out var str) && long.TryParse(str, out value))
             return true;
 
-        ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidParameter(name, "long")).Wait();
+        if (RespondOnInvalidParameter)
+            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidParameter(name, "long")).Wait();
+
         value = 0;
         return false;
     }
@@ -113,7 +119,9 @@ public class APIInteraction
         if (tryGetQuery(name, out value))
             return true;
 
-        ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.MissingQuery(name)).Wait();
+        if (RespondOnInvalidParameter)
+            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.MissingQuery(name)).Wait();
+
         return false;
     }
 
@@ -125,7 +133,9 @@ public class APIInteraction
         if (tryGetQuery(name, out var str) && long.TryParse(str, out value))
             return true;
 
-        ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidQuery(name, "long")).Wait();
+        if (RespondOnInvalidParameter)
+            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidQuery(name, "long")).Wait();
+
         value = 0;
         return false;
     }
@@ -161,7 +171,9 @@ public class APIInteraction
         if (tryGetHeader(name, out value))
             return true;
 
-        ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.MissingHeader(name)).Wait();
+        if (RespondOnInvalidParameter)
+            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.MissingHeader(name)).Wait();
+
         return false;
     }
 
