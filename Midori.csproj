@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>11</LangVersion>
     <PackageId>flustix.Midori</PackageId>
-    <Description>Simple utility lib to avoid copy-pasing the same code.</Description>
+    <Description>Simple utility lib to avoid copy-pasting the same code.</Description>
     <Authors>flustix</Authors>
     <RepositoryUrl>https://github.com/flustix/midori</RepositoryUrl>
   </PropertyGroup>
