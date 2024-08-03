@@ -1,9 +1,9 @@
 ﻿using System.Net;
 using Newtonsoft.Json;
 
-namespace Midori.API.Components;
+namespace Midori.API.Components.Json;
 
-public class APIResponse
+public class JsonResponse
 {
     [JsonProperty("status")]
     public HttpStatusCode Status { get; init; } = HttpStatusCode.OK;
@@ -12,7 +12,7 @@ public class APIResponse
     public string Message { get; init; } = "OK";
 
     [JsonProperty("pagination")]
-    public APIPagination? Pagination { get; set; }
+    public JsonPagination? Pagination { get; set; }
 
     [JsonProperty("data")]
     public object? Data { get; init; } = new();

@@ -1,8 +1,8 @@
 ﻿using Newtonsoft.Json;
 
-namespace Midori.API.Components;
+namespace Midori.API.Components.Json;
 
-public class APIPagination
+public class JsonPagination
 {
     [JsonProperty("limit")]
     public long Limit { get; init; }
@@ -16,7 +16,7 @@ public class APIPagination
     [JsonProperty("count")]
     public long Count { get; init; }
 
-    public APIPagination(long limit, long offset, long total, long count)
+    public JsonPagination(long limit, long offset, long total, long count)
     {
         Limit = limit;
         Offset = offset;

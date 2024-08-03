@@ -4,7 +4,6 @@ using System.Net;
 using System.Text;
 using HttpMultipartParser;
 using Midori.Logging;
-using Midori.Utils;
 
 namespace Midori.API.Components;
 
@@ -23,8 +22,6 @@ public class APIInteraction
     public IPAddress RemoteIP { get; private set; } = null!;
 
     private MultipartFormDataParser? parser;
-
-    private APIPagination? pagination;
 
     public void Populate(HttpListenerRequest req, HttpListenerResponse res, Dictionary<string, string> parameters)
     {
@@ -238,35 +235,17 @@ public class APIInteraction
 
     #region Replying
 
-    public async Task Reply(HttpStatusCode code, object? data = null) => await reply(new APIResponse
-    {
-        Status = code,
-        Data = data
-    });
-
-    public async Task ReplyMessage(string message) => await reply(new APIResponse
-    {
-        Message = message
-    });
-
-    public async Task ReplyError(HttpStatusCode code, string message) => await reply(new APIResponse
-    {
-        Status = code,
-        Message = message
-    });
-
-    private async Task reply(APIResponse response)
-    {
-        response.Pagination = pagination;
-
-        var json = response.Serialize();
-        var buffer = Encoding.UTF8.GetBytes(json);
-        await ReplyData(buffer, "application/json");
-    }
-
     private bool replied;
 
-    public async Task ReplyData(byte[] buffer, string type, string filename = "")
+    public virtual async Task ReplyError(HttpStatusCode code, string error, Exception? exception = null)
+    {
+        var buffer = Encoding.UTF8.GetBytes(error);
+        Response.StatusCode = (int)code;
+        Response.AddHeader("Content-Type", "text/plain");
+        await ReplyData(buffer);
+    }
+
+    public async Task ReplyData(byte[] buffer, string filename = "")
     {
         // worst case scenario I guess
         if (replied)
@@ -276,7 +255,6 @@ public class APIInteraction
 
         Response.ContentLength64 = buffer.Length;
         Response.ContentEncoding = Encoding.UTF8;
-        Response.AddHeader("Content-Type", type);
         Response.AddHeader("Access-Control-Allow-Origin", Request.Headers.Get("Origin") ?? "*");
         Response.AddHeader("Access-Control-Allow-Methods", string.Join(", ", AllowedMethods));
         Response.AddHeader("Access-Control-Allow-Headers", string.Join(", ", AllowedHeaders));
@@ -290,9 +268,6 @@ public class APIInteraction
     }
 
     #endregion
-
-    public void SetPaginationInfo(long limit, long offset, long total, long count)
-        => pagination = new APIPagination(limit, offset, total, count);
 
     #region Timing
 

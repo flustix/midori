@@ -171,7 +171,7 @@ public class APIServer<T>
             }
             catch (Exception ex)
             {
-                await interaction.ReplyError(HttpStatusCode.InternalServerError, InternalError);
+                await interaction.ReplyError(HttpStatusCode.InternalServerError, InternalError, ex);
                 logger.Add("Error handling route", LogLevel.Error, ex);
             }
         }
