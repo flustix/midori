@@ -17,6 +17,8 @@ public class APIServer<T>
     public bool Running { get; private set; }
     public bool ShowTimings { get; set; }
 
+    public bool AutoHandleOptions { get; set; } = true;
+
     public string InternalError { get; set; } = "Welp, something went very wrong. It's probably not your fault, but please report this to the developers.";
     public string NotFoundError { get; set; } = "The requested route does not exist.";
 
@@ -87,6 +89,15 @@ public class APIServer<T>
 
             IAPIRoute<T>? route = default;
             Dictionary<string, string> parameters = new();
+
+            if (req.HttpMethod == "OPTIONS")
+            {
+                var i = new T();
+                i.Populate(req, res, new Dictionary<string, string>());
+                i.Response.StatusCode = 204;
+                await i.ReplyData(Array.Empty<byte>());
+                return;
+            }
 
             foreach (var handler in routeList)
             {
