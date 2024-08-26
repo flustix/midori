@@ -4,22 +4,27 @@ using Midori.Utils;
 
 namespace Midori.API.Components.Json;
 
-public class JsonInteraction : APIInteraction
+public class JsonInteraction : JsonInteraction<JsonResponse>
+{
+}
+
+public class JsonInteraction<T> : APIInteraction
+    where T : JsonResponse, new()
 {
     private JsonPagination? pagination;
 
-    public async Task Reply(HttpStatusCode code, object? data = null) => await reply(new JsonResponse
+    public async Task Reply(HttpStatusCode code, object? data = null) => await ReplyJson(new T
     {
         Status = code,
         Data = data
     });
 
-    public async Task ReplyMessage(string message) => await reply(new JsonResponse
+    public async Task ReplyMessage(string message) => await ReplyJson(new T
     {
         Message = message
     });
 
-    public override async Task ReplyError(HttpStatusCode code, string error, Exception? exception = null) => await reply(new JsonResponse
+    public override async Task ReplyError(HttpStatusCode code, string error, Exception? exception = null) => await ReplyJson(new T
     {
         Status = code,
         Message = error
@@ -28,7 +33,7 @@ public class JsonInteraction : APIInteraction
     public void SetPaginationInfo(long limit, long offset, long total, long count)
         => pagination = new JsonPagination(limit, offset, total, count);
 
-    private async Task reply(JsonResponse response)
+    protected virtual async Task ReplyJson(T response)
     {
         response.Pagination = pagination;
 
