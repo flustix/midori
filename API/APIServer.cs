@@ -90,7 +90,7 @@ public class APIServer<T>
             IAPIRoute<T>? route = default;
             Dictionary<string, string> parameters = new();
 
-            if (req.HttpMethod == "OPTIONS")
+            if (req.HttpMethod == "OPTIONS" && AutoHandleOptions)
             {
                 var i = new T();
                 i.Populate(req, res, new Dictionary<string, string>());
