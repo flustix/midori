@@ -178,7 +178,7 @@ public class APIServer<T>
                 if (ShowTimings)
                     interaction.StartTimer();
 
-                await route.Handle(interaction);
+                await interaction.HandleRoute(route);
             }
             catch (Exception ex)
             {

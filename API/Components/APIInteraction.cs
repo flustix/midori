@@ -46,6 +46,18 @@ public class APIInteraction
     {
     }
 
+    public virtual async Task HandleRoute<T>(IAPIRoute<T> route)
+        where T : APIInteraction
+    {
+        // there has to be a better way for this...
+        if (this is T self)
+            await route.Handle(self);
+        else
+            throw new InvalidOperationException($"The current instance is not of type {typeof(T)}.");
+    }
+
+    #region Files
+
     public bool TryGetFile(string file, [NotNullWhen(true)] out FilePart? data)
     {
         if (parser == null)
@@ -60,6 +72,8 @@ public class APIInteraction
 
     public FilePart? GetFile(string name)
         => TryGetFile(name, out var file) ? file : null;
+
+    #endregion
 
     #region Route Parameters
 
