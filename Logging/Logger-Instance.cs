@@ -27,7 +27,7 @@ public partial class Logger
         if (string.IsNullOrWhiteSpace(lower))
             throw new ArgumentException("The name of a logger must be non-null and may not contain only white space.", nameof(name));
 
-        if (checkedReserved && Logger.reserved_names.Contains(lower))
+        if (checkedReserved && reserved_names.Contains(lower))
             throw new ArgumentException($"The name \"{name}\" is reserved. Please use the {nameof(LoggingTarget)}-value corresponding to the name instead.");
 
         Name = name;
@@ -39,7 +39,7 @@ public partial class Logger
 
     private void add(string message = "", LogLevel level = LogLevel.Verbose, Exception exception = null)
     {
-        if (level < Logger.Level)
+        if (level < Level)
             return;
 
         string logOutput = message;
@@ -55,7 +55,7 @@ public partial class Logger
         if (Target == LoggingTarget.Info)
             return;
 
-        lock (Logger.flush_sync_lock)
+        lock (flush_sync_lock)
         {
             lock (pendingFileOutput)
             {

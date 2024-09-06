@@ -38,7 +38,7 @@ public partial class Logger
 
     private static void error(Exception e, string description, LoggingTarget? target, string name, bool recursive)
     {
-        log($@"{description}", target, name, LogLevel.Error, e);
+        log($"{description}", target, name, LogLevel.Error, e);
 
         if (recursive && e.InnerException != null)
             error(e.InnerException, $"{description} (inner)", target, name, true);
