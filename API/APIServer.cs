@@ -22,18 +22,29 @@ public class APIServer<T>
     public string InternalError { get; set; } = "Welp, something went very wrong. It's probably not your fault, but please report this to the developers.";
     public string NotFoundError { get; set; } = "The requested route does not exist.";
 
-    public void Start(int port)
+    public void Start(string[] prefixes)
     {
+        if (!prefixes.Any())
+            throw new ArgumentException("No prefixes to listen on have been provided.", nameof(prefixes));
+
         Running = true;
 
         listener = new HttpListener();
-        listener.Prefixes.Add($"http://localhost:{port}/");
+
+        foreach (var prefix in prefixes)
+            listener.Prefixes.Add(prefix);
+
         listener.Start();
 
         var thread = new Thread(startListener);
         thread.Start();
 
-        logger.Add($"Started API server on port {port}.");
+        var log = $"Started API server on {prefixes[0]}";
+
+        if (prefixes.Length > 1)
+            log += $" +{prefixes.Length - 1} more";
+
+        logger.Add($"{log}.");
     }
 
     public void Stop()
