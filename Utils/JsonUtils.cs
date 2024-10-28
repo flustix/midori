@@ -10,20 +10,11 @@ public static class JsonUtils
     public static T? Deserialize<T>(this string json) => JsonConvert.DeserializeObject<T>(json, globalSettings());
     public static string Serialize<T>(this T obj, bool indent = false) => JsonConvert.SerializeObject(obj, globalSettings(indent));
 
-    private static JsonSerializerSettings globalSettings(bool indent = false) => new()
-    {
-        ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-        Formatting = indent ? Formatting.Indented : Formatting.None,
-        ObjectCreationHandling = ObjectCreationHandling.Replace,
-        NullValueHandling = NullValueHandling.Ignore,
-        Converters = Converters
-    };
-
-    public static bool TryParse<T>(string json, out T? result)
+    public static bool TryDeserialize<T>(this string json, out T? result)
     {
         try
         {
-            result = JsonConvert.DeserializeObject<T>(json);
+            result = json.Deserialize<T>();
             return result is not null;
         }
         catch (JsonException ex)
@@ -33,4 +24,13 @@ public static class JsonUtils
             return false;
         }
     }
+
+    private static JsonSerializerSettings globalSettings(bool indent = false) => new()
+    {
+        ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+        Formatting = indent ? Formatting.Indented : Formatting.None,
+        ObjectCreationHandling = ObjectCreationHandling.Replace,
+        NullValueHandling = NullValueHandling.Ignore,
+        Converters = Converters
+    };
 }
