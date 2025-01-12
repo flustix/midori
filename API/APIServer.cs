@@ -65,6 +65,7 @@ public class APIServer<T>
     {
         assembly.GetTypes()
                 .Where(t => t.GetInterfaces().Contains(typeof(U)))
+                .Where(t => t is { IsClass: true, IsAbstract: false })
                 .ToList()
                 .ForEach(t =>
                 {
