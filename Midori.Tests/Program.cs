@@ -1,4 +1,6 @@
 ﻿using System.Net;
+using Midori.API;
+using Midori.API.Components;
 using Midori.Logging;
 using Midori.Networking;
 using Midori.Networking.WebSockets.Typed;
@@ -11,6 +13,7 @@ internal static class Program
     {
         var server = new HttpServer();
         server.MapModule<Socket>("/");
+        server.MapModule<APIServer<APIInteraction>>("/a");
         server.Start(IPAddress.Loopback, 9090);
 
         var client = new Client();

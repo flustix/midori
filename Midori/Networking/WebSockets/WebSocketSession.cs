@@ -24,7 +24,13 @@ public abstract class WebSocketSession : IHttpModule
     {
         Context = ctx;
 
-        await acceptHandshake();
+        var success = await acceptHandshake();
+
+        if (!success)
+        {
+            Context.Close();
+            return;
+        }
 
         socket = new ServerWebSocket(ctx);
         socket.OnOpen += OnOpenInternal;
@@ -75,22 +81,24 @@ public abstract class WebSocketSession : IHttpModule
 
     #region Handshake
 
-    private async Task acceptHandshake()
+    private async Task<bool> acceptHandshake()
     {
         if (!validateRequest())
         {
+            await File.WriteAllBytesAsync("req.txt", Context.Request.ToByteArray());
             await replyError(HttpStatusCode.BadRequest, "Invalid request headers.");
-            return;
+            return false;
         }
 
         if (!Authenticate(out var msg))
         {
             await replyError(HttpStatusCode.Unauthorized, msg);
-            return;
+            return false;
         }
 
         base64Key = Context.Request.Headers["Sec-WebSocket-Key"];
         await replyHandshake();
+        return true;
     }
 
     private async Task replyHandshake()
@@ -106,6 +114,7 @@ public abstract class WebSocketSession : IHttpModule
     {
         var res = new HttpResponse(code);
         res.OutputStream.Write(Encoding.UTF8.GetBytes(message));
+        res.Flush();
         await Context.WriteResponse(res);
     }
 
