@@ -6,7 +6,7 @@ namespace Midori.API.Components;
 public interface IAPIRoute<in T>
     where T : APIInteraction
 {
-    public string RoutePath { get; }
-    public HttpMethod Method { get; }
-    public Task Handle(T interaction);
+    string RoutePath { get; }
+    HttpMethod Method { get; }
+    Task Handle(T interaction);
 }

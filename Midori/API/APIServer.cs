@@ -1,64 +1,24 @@
-﻿using System.Net;
-using System.Reflection;
+﻿using System.Reflection;
 using Midori.API.Components;
 using Midori.API.Components.Interfaces;
 using Midori.Logging;
+using Midori.Networking;
+using HttpStatusCode = Midori.Networking.HttpStatusCode;
 
 namespace Midori.API;
 
-public class APIServer<T>
+public class APIServer<T> : IHttpModule
     where T : APIInteraction, new()
 {
     private Logger logger { get; } = Logger.GetLogger("API");
 
-    private List<IAPIRoute<T>> routeList { get; } = new();
-    private HttpListener? listener;
+    private List<IAPIRoute<T>> routes { get; } = new();
 
-    public bool Running { get; private set; }
     public bool ShowTimings { get; set; }
-
     public bool AutoHandleOptions { get; set; } = true;
 
     public string InternalError { get; set; } = "Welp, something went very wrong. It's probably not your fault, but please report this to the developers.";
     public string NotFoundError { get; set; } = "The requested route does not exist.";
-
-    public void Start(string[] prefixes)
-    {
-        if (!prefixes.Any())
-            throw new ArgumentException("No prefixes to listen on have been provided.", nameof(prefixes));
-
-        Running = true;
-
-        listener = new HttpListener();
-
-        foreach (var prefix in prefixes)
-            listener.Prefixes.Add(prefix);
-
-        listener.Start();
-
-        var thread = new Thread(startListener);
-        thread.Start();
-
-        var log = $"Started API server on {prefixes[0]}";
-
-        if (prefixes.Length > 1)
-            log += $" +{prefixes.Length - 1} more";
-
-        logger.Add($"{log}.");
-    }
-
-    public void Stop()
-    {
-        Running = false;
-
-        listener?.Stop();
-        listener?.Close();
-
-        listener = null;
-        routeList.Clear();
-
-        logger.Add("Stopped API server.");
-    }
 
     public void AddRoutesFromAssembly<U>(Assembly assembly)
         where U : IAPIRoute<T>
@@ -70,65 +30,44 @@ public class APIServer<T>
                 .ForEach(t =>
                 {
                     var route = (U)Activator.CreateInstance(t)!;
-                    routeList.Add(route);
+                    routes.Add(route);
                 });
 
-        routeList.Sort((a, b) => string.Compare(a.RoutePath, b.RoutePath, StringComparison.Ordinal));
-        routeList.ForEach(r => logger.Add($"Loaded API route {r.Method.Method} {r.RoutePath}"));
+        routes.Sort((a, b) => string.Compare(a.RoutePath, b.RoutePath, StringComparison.Ordinal));
     }
 
-    private void startListener(object? o)
-    {
-        while (Running)
-            process();
-    }
-
-    private void process()
-    {
-        var res = listener?.BeginGetContext(handle, listener);
-        res?.AsyncWaitHandle.WaitOne();
-    }
-
-    private async void handle(IAsyncResult result)
+    public async Task Process(HttpServerContext ctx)
     {
         try
         {
-            var context = listener?.EndGetContext(result);
-            if (context == null) return;
+            var req = ctx.Request;
 
-            var req = context.Request;
-            var res = context.Response;
-
-            IAPIRoute<T>? route = default;
+            IAPIRoute<T>? handler = null;
             Dictionary<string, string> parameters = new();
 
-            if (req.HttpMethod == "OPTIONS" && AutoHandleOptions)
+            if (req.Method == "OPTIONS" && AutoHandleOptions)
             {
                 var i = new T();
-                i.Populate(req, res, new Dictionary<string, string>());
-                i.Response.StatusCode = 204;
+                i.Populate(ctx, req, new Dictionary<string, string>());
+                i.Response.StatusCode = HttpStatusCode.NoContent;
                 await i.ReplyData(Array.Empty<byte>());
                 return;
             }
 
-            foreach (var handler in routeList)
+            foreach (var r in routes)
             {
-                if (!string.Equals(req.HttpMethod, handler.Method.Method, StringComparison.InvariantCultureIgnoreCase))
+                if (!string.Equals(req.Method, r.Method.ToString(), StringComparison.InvariantCultureIgnoreCase))
                     continue;
 
-                // don't even know how this would happen but ok
-                if (req.Url == null)
-                    continue;
+                var url = req.Target;
 
-                var url = req.Url.AbsolutePath;
-
-                if (handler.RoutePath == url && !handler.RoutePath.Contains(':'))
+                if (r.RoutePath == url && !r.RoutePath.Contains(':'))
                 {
-                    route = handler; // exact match with no parameters
+                    handler = r; // exact match with no parameters
                     break;
                 }
 
-                var parts = handler.RoutePath.Split('/');
+                var parts = r.RoutePath.Split('/');
                 var reqParts = url.Split('/');
 
                 if (parts.Length == 0 || reqParts.Length == 0)
@@ -158,14 +97,14 @@ public class APIServer<T>
 
                 if (!match) continue;
 
-                route = handler;
+                handler = r;
                 parameters = reqParams;
             }
 
             var interaction = new T();
-            interaction.Populate(req, res, parameters);
+            interaction.Populate(ctx, req, parameters);
 
-            if (route == null)
+            if (handler == null)
             {
                 await interaction.ReplyError(HttpStatusCode.NotFound, NotFoundError);
                 return;
@@ -175,7 +114,7 @@ public class APIServer<T>
             {
                 var authHandler = interaction as IHasAuthorizationInfo;
 
-                if (route is INeedsAuthorization)
+                if (handler is INeedsAuthorization)
                 {
                     if (authHandler == null)
                         throw new InvalidOperationException("Route requires authorization but interaction does not have authorization info.");
@@ -190,7 +129,7 @@ public class APIServer<T>
                 if (ShowTimings)
                     interaction.StartTimer();
 
-                await interaction.HandleRoute(route);
+                await interaction.HandleRoute(handler);
             }
             catch (Exception ex)
             {

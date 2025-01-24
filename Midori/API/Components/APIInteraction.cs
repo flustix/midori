@@ -4,6 +4,8 @@ using System.Net;
 using System.Text;
 using HttpMultipartParser;
 using Midori.Logging;
+using Midori.Networking;
+using HttpStatusCode = Midori.Networking.HttpStatusCode;
 
 namespace Midori.API.Components;
 
@@ -16,25 +18,27 @@ public class APIInteraction
 
     protected Logger Logger { get; } = Logger.GetLogger("API");
 
-    public HttpListenerRequest Request { get; private set; } = null!;
-    public HttpListenerResponse Response { get; private set; } = null!;
+    public HttpServerContext Context { get; private set; } = null!;
+    public HttpRequest Request { get; private set; } = null!;
+    public HttpResponse Response { get; } = new(HttpStatusCode.OK);
+
     public Dictionary<string, string> Parameters { get; private set; } = null!;
     public IPAddress RemoteIP { get; private set; } = null!;
 
     private MultipartFormDataParser? parser;
 
-    public void Populate(HttpListenerRequest req, HttpListenerResponse res, Dictionary<string, string> parameters)
+    public void Populate(HttpServerContext ctx, HttpRequest req, Dictionary<string, string> parameters)
     {
+        Context = ctx;
         Request = req;
-        Response = res;
         Parameters = parameters;
 
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (Request.InputStream != null && Request.InputStream != Stream.Null && (Request.ContentType?.StartsWith("multipart/form-data") ?? false))
-            parser = MultipartFormDataParser.Parse(Request.InputStream, Request.ContentEncoding);
+            parser = MultipartFormDataParser.Parse(Request.InputStream, Encoding.UTF8);
 
         var forward = Request.Headers.Get("X-Forwarded-For");
-        RemoteIP = string.IsNullOrEmpty(forward) ? Request.RemoteEndPoint.Address : IPAddress.Parse(forward.Split(",").First());
+        RemoteIP = string.IsNullOrEmpty(forward) ? Context.EndPoint!.Address : IPAddress.Parse(forward.Split(",").First());
 
         OnPopulate();
     }
@@ -147,9 +151,7 @@ public class APIInteraction
 
     private bool tryGetQuery(string name, out string value)
     {
-        var query = Request.QueryString.Get(name);
-
-        if (!string.IsNullOrEmpty(query))
+        if (Request.QueryParameters.TryGetValue(name, out var query) && !string.IsNullOrEmpty(query))
         {
             value = query;
             return true;
@@ -254,31 +256,33 @@ public class APIInteraction
     public virtual async Task ReplyError(HttpStatusCode code, string error, Exception? exception = null)
     {
         var buffer = Encoding.UTF8.GetBytes(error);
-        Response.StatusCode = (int)code;
-        Response.AddHeader("Content-Type", "text/plain");
+        Response.StatusCode = code;
+        Response.Headers.Add("Content-Type", "text/plain");
         await ReplyData(buffer);
     }
 
     public async Task ReplyData(byte[] buffer, string filename = "")
     {
-        // worst case scenario I guess
         if (replied)
             return;
 
         replied = true;
 
-        Response.ContentLength64 = buffer.Length;
-        Response.ContentEncoding = Encoding.UTF8;
-        Response.AddHeader("Access-Control-Allow-Origin", Request.Headers.Get("Origin") ?? "*");
-        Response.AddHeader("Access-Control-Allow-Methods", string.Join(", ", AllowedMethods));
-        Response.AddHeader("Access-Control-Allow-Headers", string.Join(", ", AllowedHeaders));
+        Response.ContentLength = buffer.Length;
+        // Response.ContentEncoding = Encoding.UTF8;
+        Response.Headers.Add("Access-Control-Allow-Origin", Request.Headers.Get("Origin") ?? "*");
+        Response.Headers.Add("Access-Control-Allow-Methods", string.Join(", ", AllowedMethods));
+        Response.Headers.Add("Access-Control-Allow-Headers", string.Join(", ", AllowedHeaders));
 
         if (!string.IsNullOrEmpty(filename))
-            Response.AddHeader("Content-Disposition", $"attachment; filename=\"{filename}\"");
+            Response.Headers.Add("Content-Disposition", $"attachment; filename=\"{filename}\"");
 
         await Response.OutputStream.WriteAsync(buffer);
-        Response.Close();
+        Response.Flush();
+
+        await Context.WriteResponse(Response);
         stopTimer();
+        Context.Close();
     }
 
     #endregion

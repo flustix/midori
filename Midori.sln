@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.002.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Midori", "Midori.csproj", "{2DEB3190-D636-43D4-9A9A-833B8B0106A3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Midori", "Midori/Midori.csproj", "{2DEB3190-D636-43D4-9A9A-833B8B0106A3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Midori.Tests", "Midori.Tests\Midori.Tests.csproj", "{0B78496A-8DD9-47D7-A4B2-73F90D370971}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{2DEB3190-D636-43D4-9A9A-833B8B0106A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2DEB3190-D636-43D4-9A9A-833B8B0106A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2DEB3190-D636-43D4-9A9A-833B8B0106A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B78496A-8DD9-47D7-A4B2-73F90D370971}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B78496A-8DD9-47D7-A4B2-73F90D370971}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B78496A-8DD9-47D7-A4B2-73F90D370971}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B78496A-8DD9-47D7-A4B2-73F90D370971}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

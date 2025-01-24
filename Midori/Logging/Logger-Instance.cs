@@ -52,7 +52,7 @@ public partial class Logger
 
         writeToConsole(logOutput, level);
 
-        if (Target == LoggingTarget.Info)
+        if (Target == LoggingTarget.Info || !LogToFiles)
             return;
 
         lock (flush_sync_lock)

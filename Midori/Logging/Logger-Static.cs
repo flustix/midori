@@ -8,6 +8,7 @@ public partial class Logger
 {
     public static LogLevel Level { get; set; } = RuntimeUtils.IsDebugBuild ? LogLevel.Debug : LogLevel.Verbose;
     public static string LogDirectory { get; set; } = "logs";
+    public static bool LogToFiles { get; set; } = true;
 
     private static readonly object static_sync_lock = new();
     private static readonly object flush_sync_lock = new();

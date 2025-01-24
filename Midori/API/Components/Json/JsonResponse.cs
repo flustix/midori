@@ -1,4 +1,4 @@
-﻿using System.Net;
+﻿using Midori.Networking;
 using Newtonsoft.Json;
 
 namespace Midori.API.Components.Json;

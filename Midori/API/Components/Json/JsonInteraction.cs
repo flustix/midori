@@ -1,5 +1,5 @@
-﻿using System.Net;
-using System.Text;
+﻿using System.Text;
+using Midori.Networking;
 using Midori.Utils;
 
 namespace Midori.API.Components.Json;
@@ -39,8 +39,8 @@ public class JsonInteraction<T> : APIInteraction
 
         var json = response.Serialize();
         var buffer = Encoding.UTF8.GetBytes(json);
-        Response.StatusCode = (int)response.Status;
-        Response.AddHeader("Content-Type", "application/json");
+        Response.StatusCode = response.Status;
+        Response.Headers.Add("Content-Type", "application/json");
         await ReplyData(buffer);
     }
 }
