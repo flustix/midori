@@ -15,9 +15,18 @@ public static class StreamExtensions
         var buffer = new byte[length];
 
         var offset = 0;
+        var retry = 0;
 
-        while (offset < length)
+        while (offset < length && retry < 8)
+        {
             offset += stream.Read(buffer, offset, length - offset);
+
+            if (offset < length)
+                retry++;
+        }
+
+        if (retry == 8)
+            throw new IOException("Too many read attempts.");
 
         return buffer;
     }

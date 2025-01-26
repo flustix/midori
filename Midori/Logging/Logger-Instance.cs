@@ -67,19 +67,24 @@ public partial class Logger
         }
     }
 
+    private readonly object writeLock = new { };
+
     private void writeToConsole(string message, LogLevel level)
     {
         var target = (Target?.ToString() ?? Name).PadRight(10)[..10];
         var severity = level.ToString().PadRight(8)[..8];
 
-        Console.ForegroundColor = ConsoleColor.Gray;
-        Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
-        Console.ForegroundColor = getColor(Target);
-        Console.Write($"{target} ");
-        Console.ForegroundColor = getColor(level);
-        Console.Write($"{severity} ");
-        Console.ForegroundColor = ConsoleColor.White;
-        Console.WriteLine($"{message}");
+        lock (writeLock)
+        {
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
+            Console.ForegroundColor = getColor(Target);
+            Console.Write($"{target} ");
+            Console.ForegroundColor = getColor(level);
+            Console.Write($"{severity} ");
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine($"{message}");
+        }
     }
 
     private void writePendingLines()

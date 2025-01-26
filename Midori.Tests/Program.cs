@@ -16,7 +16,12 @@ internal static class Program
         server.MapModule<APIServer<APIInteraction>>("/a");
         server.Start(IPAddress.Loopback, 9090);
 
-        var client = new Client();
+        var clients = new List<Client>();
+
+        for (int i = 0; i < 24; i++)
+            clients.Add(new Client());
+
+        foreach (var client in clients) client.Close();
 
         await Task.Delay(-1);
     }
@@ -28,7 +33,12 @@ internal static class Program
         public Client()
         {
             client = new TypedWebSocketClient<IServer, IClient>(this);
-            client.Connect("ws://localhost:9090/");
+            client.Connect("ws://127.0.0.1:9090/");
+        }
+
+        public void Close()
+        {
+            client.Dispose();
         }
 
         public async Task Hi()
@@ -44,7 +54,13 @@ internal static class Program
         protected override void OnOpen()
         {
             base.OnOpen();
-            Client.Hi();
+            // Client.Hi();
+        }
+
+        protected override void OnClose()
+        {
+            base.OnClose();
+            Logger.Log("closing connection");
         }
 
         public Task<CustomType> Hello()

@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using System.Net.Sockets;
 using System.Text;
 using Midori.Logging;
 using Midori.Networking.WebSockets.Frame;
@@ -129,16 +130,15 @@ public abstract class WebSocket : IDisposable
         }
         catch (Exception ex)
         {
-            if (ex is ObjectDisposedException)
-                return;
-
-            if (ex is IOException)
+            switch (ex)
             {
-                close(WebSocketCloseCode.AbnormalClosure, false, false);
-                return;
-            }
+                case ObjectDisposedException or IOException or SocketException:
+                    close(WebSocketCloseCode.AbnormalClosure, false, false);
+                    return;
 
-            throw;
+                default:
+                    throw;
+            }
         }
     }
 
@@ -183,7 +183,7 @@ public abstract class WebSocket : IDisposable
         }
         catch (Exception e)
         {
-            Logger.Error(e, "Failed to send bytes!", LoggingTarget.Network);
+            Logger.Error(e, $"Failed to send bytes! [{State}]", LoggingTarget.Network);
             return false;
         }
 
