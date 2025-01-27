@@ -10,6 +10,7 @@ public class ClientWebSocket : WebSocket
     protected override bool MaskData => true;
 
     public HttpHeaderCollection RequestHeaders { get; } = new();
+    public uint PingInterval { get; init; }
 
     private TcpClient client = null!;
     private Uri uri = null!;
@@ -34,6 +35,19 @@ public class ClientWebSocket : WebSocket
 
         var thread = new Thread(Open) { Name = $"ClientWebSocket({this.uri})" };
         thread.Start();
+
+        if (PingInterval > 0)
+        {
+            var ping = new Thread(() =>
+            {
+                while (State == WebSocketState.Open)
+                {
+                    Thread.Sleep((int)PingInterval);
+                    Ping();
+                }
+            }) { Name = "WebSocket ping thread" };
+            ping.Start();
+        }
     }
 
     private bool connect()

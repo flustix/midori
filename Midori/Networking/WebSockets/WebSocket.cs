@@ -118,8 +118,11 @@ public abstract class WebSocket : IDisposable
                     }
 
                     case WebSocketOpcode.Ping:
+                        pong();
                         break;
 
+                    // could eventually implement a proper
+                    // latency system, but it's fine for now
                     case WebSocketOpcode.Pong:
                         break;
 
@@ -149,6 +152,12 @@ public abstract class WebSocket : IDisposable
 
     public bool SendText(string text) => sendData(Encoding.UTF8.GetBytes(text), WebSocketOpcode.Text);
     public bool SendBinary(byte[] data) => sendData(data, WebSocketOpcode.Binary);
+
+    public void Ping()
+        => sendFrame(new WebSocketFrame(WebSocketFinal.Final, WebSocketOpcode.Ping, Array.Empty<byte>()));
+
+    private void pong()
+        => sendFrame(new WebSocketFrame(WebSocketFinal.Final, WebSocketOpcode.Pong, Array.Empty<byte>()));
 
     private bool sendData(byte[] data, WebSocketOpcode code)
     {
