@@ -14,7 +14,7 @@ internal static class Program
         var server = new HttpServer();
         server.MapModule<Socket>("/");
         server.MapModule<APIServer<APIInteraction>>("/a");
-        server.Start(IPAddress.Loopback, 9090);
+        server.Start(IPAddress.Any, 9090);
 
         var clients = new List<Client>();
 

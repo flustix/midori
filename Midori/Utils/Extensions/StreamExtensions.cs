@@ -10,7 +10,7 @@ public static class StreamExtensions
         return value == c;
     }
 
-    public static byte[] ReadBytes(this Stream stream, int length)
+    public static byte[] ReadBytes(this Stream stream, long length)
     {
         var buffer = new byte[length];
 
@@ -19,9 +19,10 @@ public static class StreamExtensions
 
         while (offset < length && retry < 8)
         {
-            offset += stream.Read(buffer, offset, length - offset);
+            var read = stream.Read(buffer, offset, (int)(length - offset));
+            offset += read;
 
-            if (offset < length)
+            if (read == 0)
                 retry++;
         }
 

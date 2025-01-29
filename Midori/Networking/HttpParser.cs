@@ -30,7 +30,7 @@ internal static class HttpParser
 
         if (ret.ContentLength > 0)
         {
-            var body = readBody(stream, ret.ContentLength);
+            var body = stream.ReadBytes(ret.ContentLength);
             ret.MessageBody = body;
         }
 
@@ -65,21 +65,5 @@ internal static class HttpParser
 
             buffer.Add((byte)v);
         }
-    }
-
-    private static byte[] readBody(Stream stream, long length)
-    {
-        var buffer = new List<byte>();
-
-        for (var i = 0; i < length; i++)
-        {
-            var b = stream.ReadByte();
-            if (b == -1)
-                throw new EndOfStreamException("Body data finished unexpectedly.");
-
-            buffer.Add((byte)b);
-        }
-
-        return buffer.ToArray();
     }
 }
