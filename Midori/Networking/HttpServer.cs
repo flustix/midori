@@ -68,7 +68,7 @@ public class HttpServer
     private void processClient(HttpServerContext context)
     {
         var sorted = modules.OrderByDescending(a => a.Key.Length);
-        var (key, _) = sorted.FirstOrDefault(m => context.Request.Target.StartsWith(m.Key));
+        var (key, _) = sorted.FirstOrDefault(m => context.Request.Target.StartsWith(m.Key, StringComparison.InvariantCultureIgnoreCase));
 
         if (!string.IsNullOrWhiteSpace(key))
         {

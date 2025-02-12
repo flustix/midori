@@ -16,7 +16,7 @@ public class HttpRequest : HttpBase
         : base(headers)
     {
         Method = method.ToUpperInvariant();
-        Target = target.ToLowerInvariant();
+        Target = target;
         Version = version;
     }
 
