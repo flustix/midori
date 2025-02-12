@@ -17,8 +17,12 @@ public abstract class WebSocket : IDisposable
     public event Action? OnClose;
     public event Action<WebSocketMessage>? OnMessage;
 
-    private volatile WebSocketState state = WebSocketState.None;
+    public string CloseReason { get; private set; } = "";
+
     private readonly object stateLock = new { };
+    private readonly object sendLock = new { };
+
+    private volatile WebSocketState state = WebSocketState.None;
 
     public WebSocketState State
     {
@@ -113,6 +117,7 @@ public abstract class WebSocket : IDisposable
                     case WebSocketOpcode.Close:
                     {
                         var code = frame.ClosureCode;
+                        CloseReason = frame.CloseReason;
                         close(code, !code.IsReservedCode(), true);
                         break;
                     }
@@ -136,6 +141,7 @@ public abstract class WebSocket : IDisposable
             switch (ex)
             {
                 case ObjectDisposedException or IOException or SocketException:
+                    CloseReason = ex.Message;
                     close(WebSocketCloseCode.AbnormalClosure, false, false);
                     return;
 
@@ -187,8 +193,11 @@ public abstract class WebSocket : IDisposable
     {
         try
         {
+            if (MaskData)
+                frame.MaskPayload();
+
             var bytes = frame.ToArray();
-            Stream.Write(bytes, 0, bytes.Length);
+            lock (sendLock) Stream.Write(bytes, 0, bytes.Length);
         }
         catch (Exception e)
         {
@@ -203,7 +212,11 @@ public abstract class WebSocket : IDisposable
 
     #region Closing
 
-    public void Close(WebSocketCloseCode code, string message) => close(code, true, false);
+    public void Close(WebSocketCloseCode code, string message)
+    {
+        CloseReason = message;
+        close(code, true, false);
+    }
 
     private void close(WebSocketCloseCode code, bool send, bool receive)
     {

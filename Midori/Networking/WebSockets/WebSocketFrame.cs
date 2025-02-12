@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using System.Text;
 using Midori.Networking.WebSockets.Frame;
 using Midori.Utils.Extensions;
 
@@ -35,6 +36,18 @@ public class WebSocketFrame
         }
     }
 
+    public string CloseReason
+    {
+        get
+        {
+            if (payload == null || payload.Length < 3)
+                return "";
+
+            var buffer = payload[1..^1];
+            return Encoding.UTF8.GetString(buffer);
+        }
+    }
+
     private WebSocketFrame()
     {
     }
@@ -58,9 +71,7 @@ public class WebSocketFrame
         if (frame.length > 0)
         {
             frame.payload = stream.ReadBytes((int)frame.length);
-
-            if (frame.mask)
-                frame.payload = frame.payload.Select((b, i) => (byte)(b ^ frame.maskingKey![i % 4])).ToArray();
+            frame.UnmaskPayload();
         }
 
         return frame;
@@ -112,6 +123,18 @@ public class WebSocketFrame
             bw.Write(payload);
 
         return ms.ToArray();
+    }
+
+    public void MaskPayload()
+    {
+        if (mask)
+            return;
+
+        maskingKey = new byte[4];
+        Random.Shared.NextBytes(maskingKey);
+
+        payload = payload?.Select((b, i) => (byte)(b ^ maskingKey![i % 4])).ToArray();
+        mask = true;
     }
 
     public void UnmaskPayload()
