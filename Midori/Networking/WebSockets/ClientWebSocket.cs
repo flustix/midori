@@ -68,11 +68,14 @@ public class ClientWebSocket : WebSocket
     {
         createStream();
 
-        var res = sendHandshake();
+        var handshake = sendHandshake();
+        handshake.Wait();
+
+        var res = handshake.Result;
 
         if (res.StatusCode != HttpStatusCode.SwitchingProtocols)
         {
-            var message = new StreamReader(res.InputStream).ReadToEnd();
+            var message = new StreamReader(res.BodyStream).ReadToEnd();
             throw new InvalidOperationException($"{res.StatusCode} {message}");
         }
     }
@@ -99,7 +102,7 @@ public class ClientWebSocket : WebSocket
         }
     }
 
-    private HttpResponse sendHandshake()
+    private async Task<HttpResponse> sendHandshake()
     {
         var req = new HttpRequest("GET", uri.PathAndQuery, "1.1", RequestHeaders);
         req.Headers["Host"] = uri.DnsSafeHost;
@@ -107,7 +110,7 @@ public class ClientWebSocket : WebSocket
         req.Headers["Connection"] = "Upgrade";
         req.Headers["Sec-WebSocket-Key"] = "dGhlIHNhbXBsZSBub25jZQ==";
         req.Headers["Sec-WebSocket-Version"] = "13";
-        req.WriteToStream(Stream);
+        await req.WriteToStream(Stream);
         return HttpResponse.ReadResponse(Stream);
     }
 

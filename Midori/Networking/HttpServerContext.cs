@@ -23,12 +23,6 @@ public class HttpServerContext : IDisposable
         Request = HttpRequest.ReadRequest(Stream);
     }
 
-    public async Task WriteResponse(HttpResponse response)
-    {
-        var bytes = response.ToByteArray();
-        await Stream.WriteAsync(bytes);
-    }
-
     public void Close()
     {
         client.Close();

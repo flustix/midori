@@ -6,7 +6,17 @@ public class HttpResponse : HttpBase
 {
     protected override string MessageHeader => $"HTTP/1.1 {(int)StatusCode} {StatusCode.GetHttpReason()}{CR_LF}" + HeaderSection;
 
-    public Stream OutputStream { get; } = new MemoryStream();
+    public override Stream BodyStream
+    {
+        get => outputStream;
+        set
+        {
+            outputStream.Dispose();
+            outputStream = value;
+        }
+    }
+
+    private Stream outputStream { get; set; } = new MemoryStream();
 
     public HttpStatusCode StatusCode { get; set; }
 
@@ -44,9 +54,9 @@ public class HttpResponse : HttpBase
         if (rql.Length != 3)
             throw new ArgumentException("Response line is invalid.");
 
-        var version = rql[0][5..];
+        // var version = rql[0][5..];
         var code = (HttpStatusCode)int.Parse(rql[1]);
-        var reason = rql[2];
+        // var reason = rql[2];
 
         var collection = new HttpHeaderCollection();
 
@@ -54,20 +64,5 @@ public class HttpResponse : HttpBase
             collection.AddLine(headers[i]);
 
         return new HttpResponse(code, collection);
-    }
-
-    /// <summary>
-    /// Writes the OutputStream to the MessageBody.
-    /// </summary>
-    public void Flush()
-    {
-        MessageBody = ((MemoryStream)OutputStream).ToArray();
-    }
-
-    public override void Dispose()
-    {
-        base.Dispose();
-
-        OutputStream.Dispose();
     }
 }

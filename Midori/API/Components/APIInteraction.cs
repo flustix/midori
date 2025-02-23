@@ -9,7 +9,7 @@ using HttpStatusCode = Midori.Networking.HttpStatusCode;
 
 namespace Midori.API.Components;
 
-public class APIInteraction
+public class APIInteraction : IDisposable
 {
     protected virtual string[] AllowedMethods => new[] { "GET", "POST", "PUT", "DELETE", "OPTIONS" };
     protected virtual string[] AllowedHeaders => new[] { "Content-Type", "Authorization", "X-Requested-With", "X-Forwarded-For" };
@@ -34,8 +34,8 @@ public class APIInteraction
         Parameters = parameters;
 
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-        if (Request.InputStream != null && Request.InputStream != Stream.Null && (Request.ContentType?.StartsWith("multipart/form-data") ?? false))
-            parser = MultipartFormDataParser.Parse(Request.InputStream, Encoding.UTF8);
+        if (Request.BodyStream != null && Request.BodyStream != Stream.Null && (Request.ContentType?.StartsWith("multipart/form-data") ?? false))
+            parser = MultipartFormDataParser.Parse(Request.BodyStream, Encoding.UTF8);
 
         var forward = Request.Headers.Get("X-Forwarded-For");
         RemoteIP = string.IsNullOrEmpty(forward) ? Context.EndPoint!.Address : IPAddress.Parse(forward.Split(",").First());
@@ -263,12 +263,18 @@ public class APIInteraction
 
     public async Task ReplyData(byte[] buffer, string filename = "")
     {
+        using var ms = new MemoryStream(buffer);
+        await ReplyData(ms, filename);
+    }
+
+    public async Task ReplyData(Stream stream, string filename = "")
+    {
         if (replied)
             return;
 
         replied = true;
 
-        Response.ContentLength = buffer.Length;
+        Response.ContentLength = stream.Length;
         // Response.ContentEncoding = Encoding.UTF8;
         Response.Headers.Add("Access-Control-Allow-Origin", Request.Headers.Get("Origin") ?? "*");
         Response.Headers.Add("Access-Control-Allow-Methods", string.Join(", ", AllowedMethods));
@@ -277,12 +283,11 @@ public class APIInteraction
         if (!string.IsNullOrEmpty(filename))
             Response.Headers.Add("Content-Disposition", $"attachment; filename=\"{filename}\"");
 
-        await Response.OutputStream.WriteAsync(buffer);
-        Response.Flush();
-
-        await Context.WriteResponse(Response);
+        Response.BodyStream = stream;
+        await Response.WriteToStream(Context.Stream);
         stopTimer();
-        Context.Close();
+
+        Dispose();
     }
 
     #endregion
@@ -308,4 +313,11 @@ public class APIInteraction
     }
 
     #endregion
+
+    public void Dispose()
+    {
+        Context.Dispose();
+        Request.Dispose();
+        Response.Dispose();
+    }
 }

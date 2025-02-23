@@ -85,7 +85,6 @@ public abstract class WebSocketSession : IHttpModule
     {
         if (!validateRequest())
         {
-            await File.WriteAllBytesAsync("req.txt", Context.Request.ToByteArray());
             await replyError(HttpStatusCode.BadRequest, "Invalid request headers.");
             return false;
         }
@@ -107,15 +106,14 @@ public abstract class WebSocketSession : IHttpModule
         res.Headers.Add("Upgrade", "websocket");
         res.Headers.Add("Connection", "Upgrade");
         res.Headers.Add("Sec-WebSocket-Accept", createResponseKey());
-        await Context.WriteResponse(res);
+        await res.WriteToStream(Context.Stream);
     }
 
     private async Task replyError(HttpStatusCode code, string message)
     {
         var res = new HttpResponse(code);
-        res.OutputStream.Write(Encoding.UTF8.GetBytes(message));
-        res.Flush();
-        await Context.WriteResponse(res);
+        res.BodyStream.Write(Encoding.UTF8.GetBytes(message));
+        await res.WriteToStream(Context.Stream);
     }
 
     private string createResponseKey()

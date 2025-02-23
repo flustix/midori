@@ -40,13 +40,14 @@ public abstract class HttpBase : IDisposable
 
     internal byte[] MessageBody { get; set; } = Array.Empty<byte>();
 
-    public Stream InputStream
+    public virtual Stream BodyStream
     {
         get
         {
             var ms = new MemoryStream(MessageBody);
             return ms;
         }
+        set => throw new NotImplementedException();
     }
 
     internal HttpBase(HttpHeaderCollection headers)
@@ -54,22 +55,15 @@ public abstract class HttpBase : IDisposable
         Headers = headers;
     }
 
-    public byte[] ToByteArray()
+    public async Task WriteToStream(Stream stream)
     {
         var header = Encoding.UTF8.GetBytes(MessageHeader);
-        var body = MessageBody;
+        await stream.WriteAsync(header);
 
-        var result = new byte[header.Length + body.Length];
-        Buffer.BlockCopy(header, 0, result, 0, header.Length);
-        Buffer.BlockCopy(body, 0, result, header.Length, body.Length);
+        if (BodyStream.CanSeek)
+            BodyStream.Seek(0, SeekOrigin.Begin);
 
-        return result;
-    }
-
-    public void WriteToStream(Stream stream)
-    {
-        var buffer = ToByteArray();
-        stream.Write(buffer, 0, buffer.Length);
+        await BodyStream.CopyToAsync(stream);
     }
 
     public virtual void Dispose()
@@ -78,5 +72,6 @@ public abstract class HttpBase : IDisposable
 
         Headers.Clear();
         MessageBody = Array.Empty<byte>();
+        BodyStream.Dispose();
     }
 }

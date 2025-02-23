@@ -21,8 +21,6 @@ internal static class Program
         for (int i = 0; i < 24; i++)
             clients.Add(new Client());
 
-        foreach (var client in clients) client.Close();
-
         await Task.Delay(-1);
     }
 
@@ -46,6 +44,7 @@ internal static class Program
             Logger.Log("server said hi");
             var type = await client.Server.Hello();
             Logger.Log($"server sent us: {type.Text}");
+            Close();
         }
     }
 
@@ -54,7 +53,7 @@ internal static class Program
         protected override void OnOpen()
         {
             base.OnOpen();
-            // Client.Hi();
+            Client.Hi();
         }
 
         protected override void OnClose()
