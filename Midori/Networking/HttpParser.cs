@@ -31,7 +31,10 @@ internal static class HttpParser
         if (ret.ContentLength > 0)
         {
             var body = stream.ReadBytes(ret.ContentLength);
-            ret.MessageBody = body;
+            ret.BodyStream.Write(body);
+
+            if (ret.BodyStream.CanSeek)
+                ret.BodyStream.Seek(0, SeekOrigin.Begin);
         }
 
         return ret;

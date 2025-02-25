@@ -38,17 +38,7 @@ public abstract class HttpBase : IDisposable
         set => Headers["Content-Length"] = value.ToString();
     }
 
-    internal byte[] MessageBody { get; set; } = Array.Empty<byte>();
-
-    public virtual Stream BodyStream
-    {
-        get
-        {
-            var ms = new MemoryStream(MessageBody);
-            return ms;
-        }
-        set => throw new NotImplementedException();
-    }
+    public virtual Stream BodyStream { get; set; } = new MemoryStream();
 
     internal HttpBase(HttpHeaderCollection headers)
     {
@@ -57,6 +47,8 @@ public abstract class HttpBase : IDisposable
 
     public async Task WriteToStream(Stream stream)
     {
+        ContentLength = BodyStream.Length;
+
         var header = Encoding.UTF8.GetBytes(MessageHeader);
         await stream.WriteAsync(header);
 
@@ -71,7 +63,6 @@ public abstract class HttpBase : IDisposable
         GC.SuppressFinalize(this);
 
         Headers.Clear();
-        MessageBody = Array.Empty<byte>();
         BodyStream.Dispose();
     }
 }

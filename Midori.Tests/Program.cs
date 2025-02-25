@@ -50,6 +50,12 @@ internal static class Program
 
     private class Socket : TypedWebSocketSession<IServer, IClient>, IServer
     {
+        protected override bool Authenticate(out string message)
+        {
+            message = "test error";
+            return false;
+        }
+
         protected override void OnOpen()
         {
             base.OnOpen();
