@@ -104,14 +104,14 @@ public partial class Logger
             if (!Directory.Exists(logsDir))
                 Directory.CreateDirectory(logsDir);
 
-            using var stream = File.Open(Path.Combine(logsDir, Filename), FileMode.Append, FileAccess.Write, FileShare.Read);
+            using var stream = File.Open(Path.Combine(logsDir, Filename), headerAdded ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.Read);
             using var writer = new StreamWriter(stream);
 
             if (!headerAdded)
             {
                 writer.WriteLine("----------------------------------------------------------");
-                writer.WriteLine($"{Name} Log (LogLevel: {Level})");
-                writer.WriteLine($"Environment: {RuntimeUtils.OS} ({Environment.OSVersion}), {Environment.ProcessorCount} cores ");
+                writer.WriteLine($"{Name} (Minimum Level: {Level})");
+                writer.WriteLine($"Env: {RuntimeUtils.OS} ({Environment.OSVersion}), {Environment.ProcessorCount} cores ");
                 writer.WriteLine("----------------------------------------------------------");
 
                 headerAdded = true;

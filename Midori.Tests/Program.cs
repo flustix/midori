@@ -53,7 +53,7 @@ internal static class Program
         protected override bool Authenticate(out string message)
         {
             message = "test error";
-            return false;
+            return true;
         }
 
         protected override void OnOpen()
