@@ -16,35 +16,29 @@ internal static class Program
         server.MapModule<APIServer<APIInteraction>>("/a");
         server.Start(IPAddress.Any, 9090);
 
-        var clients = new List<Client>();
-
-        for (int i = 0; i < 24; i++)
-            clients.Add(new Client());
-
-        await Task.Delay(-1);
+        var client = new Client();
+        client.Close();
     }
 
     private class Client : IClient
     {
-        private TypedWebSocketClient<IServer, IClient> client { get; }
+        public TypedWebSocketClient<IServer, IClient> Connection { get; }
 
         public Client()
         {
-            client = new TypedWebSocketClient<IServer, IClient>(this);
-            client.Connect("ws://127.0.0.1:9090/");
+            Connection = new TypedWebSocketClient<IServer, IClient>(this) { PingInterval = 2000 };
+            Connection.Connect("ws://127.0.0.1:9090/");
         }
 
         public void Close()
         {
-            client.Dispose();
+            Connection.Dispose();
         }
 
-        public async Task Hi()
+        public Task WaveBack()
         {
-            Logger.Log("server said hi");
-            var type = await client.Server.Hello();
-            Logger.Log($"server sent us: {type.Text}");
-            Close();
+            Logger.Log($"we got a wave back!!");
+            return Task.CompletedTask;
         }
     }
 
@@ -56,36 +50,25 @@ internal static class Program
             return true;
         }
 
-        protected override void OnOpen()
-        {
-            base.OnOpen();
-            Client.Hi();
-        }
-
         protected override void OnClose()
         {
             base.OnClose();
             Logger.Log("closing connection");
         }
 
-        public Task<CustomType> Hello()
+        public async Task Wave()
         {
-            return Task.FromResult(new CustomType { Text = "ww" });
+            await Client.WaveBack();
         }
     }
 }
 
-public class CustomType
-{
-    public string Text { get; set; } = string.Empty;
-}
-
 public interface IServer
 {
-    Task<CustomType> Hello();
+    Task Wave();
 }
 
 public interface IClient
 {
-    Task Hi();
+    Task WaveBack();
 }

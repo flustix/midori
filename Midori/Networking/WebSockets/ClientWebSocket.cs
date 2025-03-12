@@ -10,7 +10,9 @@ public class ClientWebSocket : WebSocket
     protected override bool MaskData => true;
 
     public HttpHeaderCollection RequestHeaders { get; } = new();
+
     public uint PingInterval { get; init; }
+    private CancellationTokenSource? pingCancel;
 
     private TcpClient client = null!;
     private Uri uri = null!;
@@ -38,12 +40,21 @@ public class ClientWebSocket : WebSocket
 
         if (PingInterval > 0)
         {
+            pingCancel = new CancellationTokenSource();
+
             var ping = new Thread(() =>
             {
                 while (State == WebSocketState.Open)
                 {
-                    Thread.Sleep((int)PingInterval);
-                    Ping();
+                    try
+                    {
+                        Task.Delay((int)PingInterval, pingCancel.Token).GetAwaiter().GetResult();
+                        Ping();
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        break;
+                    }
                 }
             }) { Name = "WebSocket ping thread" };
             ping.Start();
@@ -118,6 +129,7 @@ public class ClientWebSocket : WebSocket
     {
         base.Dispose();
         client.Close();
+        pingCancel?.Cancel();
     }
 
     public override string ToString() => $"{uri} {base.ToString()}";
