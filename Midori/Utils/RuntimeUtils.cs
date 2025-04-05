@@ -16,7 +16,7 @@ public class RuntimeUtils
             OS = Platform.Linux;
 
         if (OS == 0)
-            throw new PlatformNotSupportedException("Operating system could not be detected correctly.");
+            OS = Platform.Unknown;
     }
 
     private static Lazy<bool> isDebugBuild { get; } = new(() =>
@@ -27,7 +27,7 @@ public class RuntimeUtils
     public enum Platform
     {
         Windows = 1,
-        Linux = 2
+        Linux = 2,
+        Unknown = 99
     }
 }
-
