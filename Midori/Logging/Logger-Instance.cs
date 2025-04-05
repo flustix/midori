@@ -39,7 +39,7 @@ public partial class Logger
 
     private void add(string message = "", LogLevel level = LogLevel.Verbose, Exception exception = null)
     {
-        if (level < Level)
+        if (level < MinimumLevel)
             return;
 
         string logOutput = message;
@@ -52,7 +52,7 @@ public partial class Logger
 
         writeToConsole(logOutput, level);
 
-        if (Target == LoggingTarget.Info || !LogToFiles)
+        if (Target == LoggingTarget.Info || !SaveToFiles)
             return;
 
         lock (flush_sync_lock)
@@ -99,7 +99,7 @@ public partial class Logger
 
         try
         {
-            var logsDir = LogDirectory;
+            var logsDir = TargetDirectory;
 
             if (!Directory.Exists(logsDir))
                 Directory.CreateDirectory(logsDir);
@@ -110,7 +110,7 @@ public partial class Logger
             if (!headerAdded)
             {
                 writer.WriteLine("----------------------------------------------------------");
-                writer.WriteLine($"{Name} (Minimum Level: {Level})");
+                writer.WriteLine($"{Name} (Minimum Level: {MinimumLevel})");
                 writer.WriteLine($"Env: {RuntimeUtils.OS} ({Environment.OSVersion}), {Environment.ProcessorCount} cores ");
                 writer.WriteLine("----------------------------------------------------------");
 
