@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using JetBrains.Annotations;
 using Midori.Utils;
 
 namespace Midori.Logging;
@@ -51,6 +52,8 @@ public partial class Logger
                              .Select(s => $"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)} [{level.ToString().ToLowerInvariant()}]: {s.Trim()}");
 
         writeToConsole(logOutput, level);
+
+        OnEntry?.Invoke(new Entry(level, Target, Name, message, exception));
 
         if (Target == LoggingTarget.Info || !SaveToFiles)
             return;
@@ -122,6 +125,26 @@ public partial class Logger
         }
         catch
         {
+        }
+    }
+
+    public class Entry
+    {
+        public LogLevel Level { get; }
+        public LoggingTarget? Target { get; }
+        public string LoggerName { get; }
+        public string Message { get; }
+
+        [CanBeNull]
+        public Exception Exception { get; }
+
+        public Entry(LogLevel level, LoggingTarget? target, string loggerName, string message, [CanBeNull] Exception exception)
+        {
+            Level = level;
+            Target = target;
+            LoggerName = loggerName;
+            Message = message;
+            Exception = exception;
         }
     }
 }

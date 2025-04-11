@@ -14,6 +14,8 @@ public partial class Logger
     private static readonly object flush_sync_lock = new();
     private static readonly Dictionary<string, Logger> static_loggers = new();
 
+    public static event Action<Entry> OnEntry;
+
     private static readonly HashSet<string> reserved_names = new(Enum.GetNames<LoggingTarget>().Select(n => n.ToLowerInvariant()));
 
     #region Writing (public)
