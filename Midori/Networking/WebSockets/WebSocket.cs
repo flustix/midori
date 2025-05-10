@@ -20,7 +20,7 @@ public abstract class WebSocket : IDisposable
     public string CloseReason { get; private set; } = "";
 
     private readonly object stateLock = new { };
-    private readonly object sendLock = new { };
+    private readonly SemaphoreSlim sendSemaphore = new(1, 1);
 
     private volatile WebSocketState state = WebSocketState.None;
 
@@ -153,8 +153,8 @@ public abstract class WebSocket : IDisposable
 
     #region Sending
 
-    public async Task<bool> SendTextAsync(string text) => await Task.Run(() => SendText(text));
-    public async Task<bool> SendBinaryAsync(byte[] data) => await Task.Run(() => SendBinary(data));
+    public Task<bool> SendTextAsync(string text) => sendDataAsync(Encoding.UTF8.GetBytes(text), WebSocketOpcode.Text);
+    public Task<bool> SendBinaryAsync(byte[] data) => sendDataAsync(data, WebSocketOpcode.Binary);
 
     public bool SendText(string text) => sendData(Encoding.UTF8.GetBytes(text), WebSocketOpcode.Text);
     public bool SendBinary(byte[] data) => sendData(data, WebSocketOpcode.Binary);
@@ -189,6 +189,30 @@ public abstract class WebSocket : IDisposable
         return true;
     }
 
+    private async Task<bool> sendDataAsync(byte[] data, WebSocketOpcode code)
+    {
+        var length = data.Length;
+        var sections = length / chunk_size;
+
+        if (length % chunk_size != 0)
+            sections++;
+
+        for (var i = 0; i < sections; i++)
+        {
+            var start = i * chunk_size;
+            var end = Math.Min(start + chunk_size, length);
+            var chunk = data[start..end];
+            var fin = i == sections - 1 ? WebSocketFinal.Final : WebSocketFinal.Partial;
+            var opcode = i == 0 ? code : WebSocketOpcode.Continuation;
+            var frame = new WebSocketFrame(fin, opcode, chunk);
+
+            if (!await sendFrameAsync(frame))
+                return false;
+        }
+
+        return true;
+    }
+
     private bool sendFrame(WebSocketFrame frame)
     {
         try
@@ -197,7 +221,46 @@ public abstract class WebSocket : IDisposable
                 frame.MaskPayload();
 
             var bytes = frame.ToArray();
-            lock (sendLock) Stream.Write(bytes, 0, bytes.Length);
+
+            sendSemaphore.Wait();
+
+            try
+            {
+                Stream.Write(bytes, 0, bytes.Length);
+            }
+            finally
+            {
+                sendSemaphore.Release();
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e, $"Failed to send bytes! [{State}]", LoggingTarget.Network);
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task<bool> sendFrameAsync(WebSocketFrame frame)
+    {
+        try
+        {
+            if (MaskData)
+                frame.MaskPayload();
+
+            var bytes = frame.ToArray();
+
+            await sendSemaphore.WaitAsync();
+
+            try
+            {
+                await Stream.WriteAsync(bytes, 0, bytes.Length);
+            }
+            finally
+            {
+                sendSemaphore.Release();
+            }
         }
         catch (Exception e)
         {

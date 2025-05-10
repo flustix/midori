@@ -23,15 +23,15 @@ public class TypedSingleProxy : ITypedProxy, ITypedSingleProxy
     {
         var request = TypedInvokeRequest.Create(method, args);
 
-        var task = new TaskCompletionSource<T>();
-        waitInfos.Add(request.InvokeID, new TypedResponseWaitInfo(res => task.SetResult((T)res!), typeof(T)));
+        var tsc = new TaskCompletionSource<T>();
+        waitInfos.Add(request.InvokeID, new TypedResponseWaitInfo(res => tsc.SetResult((T)res!), tsc.SetException, typeof(T)));
 
         await session.SendAsync(request.Serialize());
-        await Task.WhenAny(task.Task, Task.Delay(5000, token));
+        await Task.WhenAny(tsc.Task, Task.Delay(5000, token));
 
-        if (!task.Task.IsCompleted)
+        if (!tsc.Task.IsCompleted)
             throw new TimeoutException("The request timed out!");
 
-        return await task.Task;
+        return await tsc.Task;
     }
 }

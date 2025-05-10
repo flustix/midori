@@ -57,6 +57,7 @@ internal class TypedInvokeRequest
     internal enum InvokeType
     {
         Invoke,
-        Return
+        Return,
+        Exception
     }
 }

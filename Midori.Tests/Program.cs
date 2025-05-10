@@ -17,7 +17,9 @@ internal static class Program
         server.Start(IPAddress.Any, 9090);
 
         var client = new Client();
-        client.Close();
+        await client.StartWave();
+
+        await Task.Delay(-1);
     }
 
     private class Client : IClient
@@ -28,6 +30,21 @@ internal static class Program
         {
             Connection = new TypedWebSocketClient<IServer, IClient>(this) { PingInterval = 2000 };
             Connection.Connect("ws://127.0.0.1:9090/");
+        }
+
+        public async Task StartWave()
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                try
+                {
+                    await Connection.Server.Wave();
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(e, "Failed to wave.");
+                }
+            }
         }
 
         public void Close()
@@ -56,16 +73,27 @@ internal static class Program
             Logger.Log("closing connection");
         }
 
-        public async Task Wave()
+        public async Task<string> Wave()
         {
-            await Client.WaveBack();
+            var rng = Random.Shared.Next(0, 2);
+            // Logger.Log($"{rng}");
+
+            if (rng == 1)
+            {
+                Logger.Log("throwing");
+                throw new TestException("yuh");
+            }
+
+            return await Task.FromResult("aa");
         }
     }
+
+    private class TestException(string message) : TypedWebSocketException(message);
 }
 
 public interface IServer
 {
-    Task Wave();
+    Task<string> Wave();
 }
 
 public interface IClient

@@ -34,14 +34,41 @@ public class TypedWebSocketClient<S, C> : ClientWebSocket
             var json = message.Text;
             var req = json.Deserialize<TypedInvokeRequest>()!;
 
-            if (req.Type == TypedInvokeRequest.InvokeType.Return)
+            switch (req.Type)
             {
-                if (!WaitForResponse.Remove(req.InvokeID, out var info))
-                    return;
+                case TypedInvokeRequest.InvokeType.Return:
+                {
+                    if (!WaitForResponse.Remove(req.InvokeID, out var info))
+                        return;
 
-                var ar = TypedInvokeRequest.BuildArgsList(new[] { info.CallbackType }, req.Arguments);
-                info.Callback(ar[0]);
-                return;
+                    var ar = TypedInvokeRequest.BuildArgsList(new[] { info.CallbackType }, req.Arguments);
+                    info.Callback(ar[0]);
+                    return;
+                }
+
+                case TypedInvokeRequest.InvokeType.Exception:
+                {
+                    if (!WaitForResponse.Remove(req.InvokeID, out var info))
+                        return;
+
+                    if (req.Arguments.Length < 2)
+                        return;
+
+                    var typeStr = req.Arguments[0]!.ToObject<string>()!;
+                    var exMessage = req.Arguments[1]!.ToObject<string>()!;
+
+                    var type = TypeHelper.FindType(typeStr);
+
+                    if (type is null)
+                    {
+                        info.ExceptionCallback(new Exception($"{typeStr} {exMessage}"));
+                        return;
+                    }
+
+                    var exception = (Exception)Activator.CreateInstance(type, exMessage)!;
+                    info.ExceptionCallback(exception);
+                    return;
+                }
             }
 
             var method = typeof(C).GetMethod(req.MethodName, BindingFlags.Default | BindingFlags.Public | BindingFlags.Instance);
@@ -56,11 +83,30 @@ public class TypedWebSocketClient<S, C> : ClientWebSocket
 
             if (!isInvoke)
             {
-                method.Invoke(target, args.ToArray());
+                await (Task)method.Invoke(target, args.ToArray())!;
                 return;
             }
 
-            var ret = await (dynamic)method.Invoke(target, args.ToArray())!;
+            dynamic? ret;
+
+            try
+            {
+                ret = await (dynamic)method.Invoke(target, args.ToArray())!;
+            }
+            catch (TargetInvocationException inv)
+            {
+                if (inv.InnerException is not TypedWebSocketException tex)
+                    throw;
+
+                await sendException(req, tex);
+                return;
+            }
+            catch (TypedWebSocketException ex)
+            {
+                await sendException(req, ex);
+                return;
+            }
+
             var payload = TypedInvokeRequest.Create("", new[] { ret });
             payload.InvokeID = req.InvokeID;
             payload.Type = TypedInvokeRequest.InvokeType.Return;
@@ -69,6 +115,14 @@ public class TypedWebSocketClient<S, C> : ClientWebSocket
         catch (Exception ex)
         {
             Logger.Error(ex, "Failed to handle message!", LoggingTarget.Network);
+        }
+
+        async Task sendException(TypedInvokeRequest req, Exception ex)
+        {
+            var error = TypedInvokeRequest.Create("", new object?[] { ex.GetType().FullName, ex.Message });
+            error.InvokeID = req.InvokeID;
+            error.Type = TypedInvokeRequest.InvokeType.Exception;
+            await SendTextAsync(error.Serialize());
         }
     }
 }
