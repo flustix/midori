@@ -26,12 +26,14 @@ public class TypedWebSocketClient<S, C> : ClientWebSocket
 
     private async void onMessage(WebSocketMessage message)
     {
+        string? json = null;
+
         try
         {
             if (!message.IsText)
                 return;
 
-            var json = message.Text;
+            json = message.Text;
             var req = json.Deserialize<TypedInvokeRequest>()!;
 
             switch (req.Type)
@@ -114,7 +116,7 @@ public class TypedWebSocketClient<S, C> : ClientWebSocket
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "Failed to handle message!", LoggingTarget.Network);
+            Logger.Error(ex, $"Failed to handle message! {json}", LoggingTarget.Network);
         }
 
         async Task sendException(TypedInvokeRequest req, Exception ex)

@@ -27,12 +27,14 @@ public class TypedWebSocketSession<S, C> : WebSocketSession
 
     internal override async void OnMessageInternal(WebSocketMessage message)
     {
+        string? json = null;
+
         try
         {
             if (!message.IsText)
                 return;
 
-            var json = message.Text;
+            json = message.Text;
             var req = json.Deserialize<TypedInvokeRequest>()!;
 
             switch (req.Type)
@@ -115,7 +117,7 @@ public class TypedWebSocketSession<S, C> : WebSocketSession
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "Failed to handle message!", LoggingTarget.Network);
+            Logger.Error(ex, $"Failed to handle message! {json}", LoggingTarget.Network);
         }
 
         async Task sendException(TypedInvokeRequest req, Exception ex)

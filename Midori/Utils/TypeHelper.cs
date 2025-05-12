@@ -10,7 +10,17 @@ public static class TypeHelper
             return type;
 
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-        var types = assemblies.SelectMany(x => x.GetTypes());
+        var types = assemblies.SelectMany(x =>
+        {
+            try
+            {
+                return x.GetTypes();
+            }
+            catch
+            {
+                return Array.Empty<Type>();
+            }
+        });
 
         type = types.FirstOrDefault(x => x.FullName == str);
 
