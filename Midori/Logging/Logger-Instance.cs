@@ -79,15 +79,23 @@ public partial class Logger
 
         lock (writeLock)
         {
-            Console.ForegroundColor = ConsoleColor.Gray;
+            changeColor(ConsoleColor.Gray);
             Console.Write($"[{DateTime.Now:HH:mm:ss}] ");
-            Console.ForegroundColor = getColor(Target);
+            changeColor(getColor(Target));
             Console.Write($"{target} ");
-            Console.ForegroundColor = getColor(level);
+            changeColor(getColor(level));
             Console.Write($"{severity} ");
-            Console.ForegroundColor = ConsoleColor.White;
+            changeColor(ConsoleColor.White);
             Console.WriteLine($"{message}");
         }
+    }
+
+    private void changeColor(ConsoleColor color)
+    {
+        if (RuntimeUtils.OS == RuntimeUtils.Platform.Unknown)
+            return;
+
+        Console.ForegroundColor = color;
     }
 
     private void writePendingLines()
