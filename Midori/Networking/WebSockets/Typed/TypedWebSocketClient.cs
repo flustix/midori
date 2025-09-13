@@ -76,7 +76,10 @@ public class TypedWebSocketClient<S, C> : ClientWebSocket
             var method = typeof(C).GetMethod(req.MethodName, BindingFlags.Default | BindingFlags.Public | BindingFlags.Instance);
 
             if (method is null)
+            {
+                Logger.Log($"Server tried calling '{req.MethodName}' but the method does not exist on the client.", LoggingTarget.Network, LogLevel.Warning);
                 return;
+            }
 
             var mParams = method.GetParameters();
             var args = TypedInvokeRequest.BuildArgsList(mParams.Select(p => p.ParameterType).ToArray(), req.Arguments);
