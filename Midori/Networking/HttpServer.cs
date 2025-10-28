@@ -114,7 +114,7 @@ public class HttpServer
 
     private void processClient(HttpServerContext context)
     {
-        var split = context.Request.Target.Split("/", StringSplitOptions.RemoveEmptyEntries);
+        var split = context.Request.Target.Split("?").First().Split("/", StringSplitOptions.RemoveEmptyEntries);
         var sorted = modules.OrderByDescending(a => a.Key.Length);
 
         var (key, _) = sorted.FirstOrDefault(m =>
