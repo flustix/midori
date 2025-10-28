@@ -7,6 +7,7 @@ using HttpStatusCode = Midori.Networking.HttpStatusCode;
 
 namespace Midori.API;
 
+[Obsolete("Prefer registering API routes with HttpServer.RegisterAPI")]
 public class APIServer<T> : IHttpModule
     where T : APIInteraction, new()
 {
@@ -106,7 +107,7 @@ public class APIServer<T> : IHttpModule
 
             if (handler == null)
             {
-                await interaction.ReplyError(HttpStatusCode.NotFound, NotFoundError);
+                await interaction.ReplyMessage(HttpStatusCode.NotFound, NotFoundError);
                 return;
             }
 
@@ -121,7 +122,7 @@ public class APIServer<T> : IHttpModule
 
                     if (!authHandler.IsAuthorized)
                     {
-                        await interaction.ReplyError(HttpStatusCode.Unauthorized, authHandler.AuthorizationError);
+                        await interaction.ReplyMessage(HttpStatusCode.Unauthorized, authHandler.AuthorizationError);
                         return;
                     }
                 }
@@ -133,7 +134,7 @@ public class APIServer<T> : IHttpModule
             }
             catch (Exception ex)
             {
-                await interaction.ReplyError(HttpStatusCode.InternalServerError, InternalError, ex);
+                await interaction.ReplyMessage(HttpStatusCode.InternalServerError, InternalError, ex);
                 logger.Add("Error handling route", LogLevel.Error, ex);
             }
         }

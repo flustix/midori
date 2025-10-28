@@ -1,9 +1,11 @@
 ﻿using System.Net;
+using System.Reflection;
 using Midori.API;
 using Midori.API.Components;
 using Midori.Logging;
 using Midori.Networking;
 using Midori.Networking.WebSockets.Typed;
+using Midori.Tests.API;
 
 namespace Midori.Tests;
 
@@ -11,13 +13,13 @@ internal static class Program
 {
     private static async Task Main(string[] args)
     {
-        var server = new HttpServer();
-        server.MapModule<Socket>("/");
-        server.MapModule<APIServer<APIInteraction>>("/a");
+        var server = new HttpServer { NotFoundModule = new APIRouteModule<APIInteraction, TestRoute>() };
+        server.RegisterAPI<APIInteraction, IAPIRoute<APIInteraction>>(Assembly.GetEntryAssembly()!);
+        server.MapModule<Socket>("/a");
         server.Start(IPAddress.Any, 9090);
 
-        var client = new Client();
-        await client.StartWave();
+        // var client = new Client();
+        // await client.StartWave();
 
         await Task.Delay(-1);
     }
@@ -29,7 +31,7 @@ internal static class Program
         public Client()
         {
             Connection = new TypedWebSocketClient<IServer, IClient>(this) { PingInterval = 2000 };
-            Connection.Connect("ws://127.0.0.1:9090/");
+            Connection.Connect("ws://127.0.0.1:9090/a");
         }
 
         public async Task StartWave()

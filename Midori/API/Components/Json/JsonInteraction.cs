@@ -13,21 +13,17 @@ public class JsonInteraction<T> : APIInteraction
 {
     private JsonPagination? pagination;
 
-    public async Task Reply(HttpStatusCode code, object? data = null) => await ReplyJson(new T
+    public async Task Reply(HttpStatusCode code, object? data = null, string message = "") => await ReplyJson(new T
     {
         Status = code,
+        Message = message,
         Data = data
     });
 
-    public async Task ReplyMessage(string message) => await ReplyJson(new T
-    {
-        Message = message
-    });
-
-    public override async Task ReplyError(HttpStatusCode code, string error, Exception? exception = null) => await ReplyJson(new T
+    public override async Task ReplyMessage(HttpStatusCode code, string message, Exception? exception = null) => await ReplyJson(new T
     {
         Status = code,
-        Message = error
+        Message = message
     });
 
     public void SetPaginationInfo(long limit, long offset, long total, long count)

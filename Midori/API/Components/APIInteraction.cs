@@ -97,7 +97,7 @@ public class APIInteraction : IDisposable
             return true;
 
         if (RespondOnInvalidParameter)
-            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidParameter(name, "string")).Wait();
+            ReplyMessage(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidParameter(name, "string")).Wait();
 
         return false;
     }
@@ -111,7 +111,7 @@ public class APIInteraction : IDisposable
             return true;
 
         if (RespondOnInvalidParameter)
-            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidParameter(name, "int")).Wait();
+            ReplyMessage(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidParameter(name, "int")).Wait();
 
         value = 0;
         return false;
@@ -131,7 +131,7 @@ public class APIInteraction : IDisposable
             return true;
 
         if (RespondOnInvalidParameter)
-            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidParameter(name, "long")).Wait();
+            ReplyMessage(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidParameter(name, "long")).Wait();
 
         value = 0;
         return false;
@@ -167,7 +167,7 @@ public class APIInteraction : IDisposable
             return true;
 
         if (RespondOnInvalidParameter)
-            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.MissingQuery(name)).Wait();
+            ReplyMessage(HttpStatusCode.BadRequest, DefaultResponseStrings.MissingQuery(name)).Wait();
 
         return false;
     }
@@ -181,7 +181,7 @@ public class APIInteraction : IDisposable
             return true;
 
         if (RespondOnInvalidParameter)
-            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidQuery(name, "int")).Wait();
+            ReplyMessage(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidQuery(name, "int")).Wait();
 
         value = 0;
         return false;
@@ -201,7 +201,7 @@ public class APIInteraction : IDisposable
             return true;
 
         if (RespondOnInvalidParameter)
-            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidQuery(name, "long")).Wait();
+            ReplyMessage(HttpStatusCode.BadRequest, DefaultResponseStrings.InvalidQuery(name, "long")).Wait();
 
         value = 0;
         return false;
@@ -239,7 +239,7 @@ public class APIInteraction : IDisposable
             return true;
 
         if (RespondOnInvalidParameter)
-            ReplyError(HttpStatusCode.BadRequest, DefaultResponseStrings.MissingHeader(name)).Wait();
+            ReplyMessage(HttpStatusCode.BadRequest, DefaultResponseStrings.MissingHeader(name)).Wait();
 
         return false;
     }
@@ -253,9 +253,9 @@ public class APIInteraction : IDisposable
 
     private bool replied;
 
-    public virtual async Task ReplyError(HttpStatusCode code, string error, Exception? exception = null)
+    public virtual async Task ReplyMessage(HttpStatusCode code, string message, Exception? exception = null)
     {
-        var buffer = Encoding.UTF8.GetBytes(error);
+        var buffer = Encoding.UTF8.GetBytes(message);
         Response.StatusCode = code;
         Response.Headers.Add("Content-Type", "text/plain");
         await ReplyData(buffer);
