@@ -10,10 +10,11 @@ namespace Midori.Networking;
 public class HttpServer
 {
     private TcpListener listener = null!;
-    private Dictionary<string, (Type, Action<object>?)> modules { get; } = new();
+    private Dictionary<string, PathMethods> paths { get; } = new();
     private Dictionary<Type, HttpConnectionManager> managers { get; } = new();
 
     public IHttpModule? NotFoundModule { get; set; }
+    public IHttpModule? MethodNotAllowedModule { get; set; }
 
     public void Start(IPAddress address, int port)
     {
@@ -55,16 +56,20 @@ public class HttpServer
                          .GetMethod(nameof(MapModule), BindingFlags.Instance | BindingFlags.Public)!
                          .MakeGenericMethod(gen);
 
-            method!.Invoke(this, new object?[] { $"{route.RoutePath}", null });
+            method!.Invoke(this, new object?[] { $"{route.RoutePath}", route.Method, null });
         }
     }
 
-    public HttpConnectionManager<T> MapModule<T>(string prefix, Action<T>? config = null)
+    public HttpConnectionManager<T> MapModule<T>(string prefix, HttpMethod? method = null, Action<T>? config = null)
         where T : IHttpModule, new()
     {
         assureValidPrefix(prefix);
+        method ??= HttpMethod.Get;
 
-        modules.Add(prefix, (typeof(T), o => config?.Invoke((T)o)));
+        if (!paths.ContainsKey(prefix))
+            paths[prefix] = new PathMethods();
+
+        paths[prefix].AddMethod(method, new RegisteredModule(typeof(T), o => config?.Invoke((T)o)));
 
         if (!managers.ContainsKey(typeof(T)))
             managers.Add(typeof(T), new HttpConnectionManager<T>());
@@ -115,9 +120,9 @@ public class HttpServer
     private void processClient(HttpServerContext context)
     {
         var split = context.Request.Target.Split("?").First().Split("/", StringSplitOptions.RemoveEmptyEntries);
-        var sorted = modules.OrderByDescending(a => a.Key.Length);
+        var sorted = paths.OrderByDescending(a => a.Key.Length);
 
-        var (key, _) = sorted.FirstOrDefault(m =>
+        var (key, methods) = sorted.FirstOrDefault(m =>
         {
             var ksp = m.Key.Split("/", StringSplitOptions.RemoveEmptyEntries);
             if (split.Length != ksp.Length) return false;
@@ -137,6 +142,20 @@ public class HttpServer
             return true;
         });
 
+        HttpMethod? method = context.Request.Method switch
+        {
+            "GET" => HttpMethod.Get,
+            "PUT" => HttpMethod.Put,
+            "POST" => HttpMethod.Post,
+            "DELETE" => HttpMethod.Delete,
+            "HEAD" => HttpMethod.Head,
+            "OPTIONS" => HttpMethod.Options,
+            "TRACE" => HttpMethod.Trace,
+            "PATCH" => HttpMethod.Patch,
+            "CONNECT" => HttpMethod.Connect,
+            _ => null
+        };
+
         if (!string.IsNullOrWhiteSpace(key))
         {
             HttpConnectionManager? manager = null;
@@ -144,11 +163,18 @@ public class HttpServer
 
             try
             {
-                var (type, config) = modules[key];
-                module = (IHttpModule)Activator.CreateInstance(type)!;
-                config?.Invoke(module);
+                var mod = methods.GetForMethod(method);
 
-                if (managers.TryGetValue(type, out var m))
+                if (mod is null)
+                {
+                    (MethodNotAllowedModule ?? NotFoundModule)?.Process(context);
+                    return;
+                }
+
+                module = (IHttpModule)Activator.CreateInstance(mod.Type)!;
+                mod.Config?.Invoke(module);
+
+                if (managers.TryGetValue(mod.Type, out var m))
                     manager = m;
             }
             catch (Exception ex)
@@ -169,6 +195,26 @@ public class HttpServer
                 Logger.Log($"No matching module found for {context.Request.Target}!", LoggingTarget.Network, LogLevel.Warning);
             else
                 NotFoundModule.Process(context);
+        }
+    }
+
+    private class PathMethods
+    {
+        private readonly Dictionary<HttpMethod, RegisteredModule> methods = new();
+
+        public void AddMethod(HttpMethod method, RegisteredModule mod) => methods.Add(method, mod);
+        public RegisteredModule? GetForMethod(HttpMethod? method) => method is null ? null : methods.GetValueOrDefault(method);
+    }
+
+    private class RegisteredModule
+    {
+        public Type Type { get; }
+        public Action<object>? Config { get; }
+
+        public RegisteredModule(Type type, Action<object>? config)
+        {
+            Type = type;
+            Config = config;
         }
     }
 }
