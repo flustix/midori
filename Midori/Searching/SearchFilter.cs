@@ -115,10 +115,12 @@ public partial class SearchFilter<T>
             if (filter is null)
                 throw new InvalidOperationException($"Type of '{key}' is an unknown type '{info.PropertyType.Name}'.");
 
-            finalExpr = filter.BuildFilter(param, info, split, parseOperator(op), val);
+            var part = filter.BuildFilter(param, info, split, parseOperator(op), val);
+            finalExpr = finalExpr != null ? Expression.And(finalExpr, part) : part;
         }
 
-        return finalExpr == null ? x => false : Expression.Lambda<Func<T, bool>>(finalExpr, param);
+        var result = finalExpr == null ? x => false : Expression.Lambda<Func<T, bool>>(finalExpr, param);
+        return result;
     }
 
     private List<(string, string, string)> groupTokens(List<string> tokens)
