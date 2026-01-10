@@ -1,4 +1,5 @@
-﻿using Midori.Logging;
+﻿using Midori.DBus.Exceptions;
+using Midori.Logging;
 
 namespace Midori.DBus;
 
@@ -17,8 +18,24 @@ internal static class Program
         var act = await conn.ListActivatableNames();
         act.ForEach(x => Logger.Log(x));
 
-        var own = await conn.NameHasOwner("org.kde.StatusNotifierWatcher");
+        var own = await conn.NameHasOwner("moe.flux.Midori");
         Logger.Log($"Is owned: {own}");
+
+        try
+        {
+            var msg = await conn.CallMethod("org.kde.StatusNotifierWatcher", "/StatusNotifierWatcher", "org.freedesktop.DBus.Properties", "Get", w =>
+            {
+                w.WriteString("org.kde.StatusNotifierWatcher");
+                w.WriteString("ProtocolVersion");
+            });
+
+            var read = msg.GetBodyReader();
+            Logger.Log($"SNW ProtoVersion: {read.ReadInt32()}");
+        }
+        catch (DBusException ex)
+        {
+            Logger.Error(ex, "Failed to get ProtoVersion from SNW.");
+        }
 
         await Task.Delay(-1);
     }
