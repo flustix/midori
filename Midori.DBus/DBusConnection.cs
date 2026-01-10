@@ -259,6 +259,17 @@ public class DBusConnection
         });
     }
 
+    internal T GetReturnForProxy<T>(DBusObject obj, string member, DBusMessage message)
+    {
+        var objType = obj.GetType();
+        var method = objType.GetMethod(member, BindingFlags.Instance | BindingFlags.Public)!;
+        var ret = method.ReturnType.GetGenericArguments().First();
+
+        var read = message.GetBodyReader();
+        var val = read.Read(IDBusValue.GetForType(ret));
+        return (T)val;
+    }
+
     internal async Task<DBusMessage> CallDBusMethod(string member, Action<DBusWriter>? write = null) =>
         await CallMethod("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", member, write);
 

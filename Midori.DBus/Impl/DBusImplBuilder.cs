@@ -90,7 +90,17 @@ internal class DBusImplBuilder<T>
         gen.Emit(OpCodes.Callvirt, getResult); // task.Result
         gen.Emit(OpCodes.Stloc_1); // result =
 
-        gen.Emit(OpCodes.Ldc_I4_0);
+        gen.Emit(OpCodes.Ldarg_0); // this
+        gen.Emit(OpCodes.Ldfld, connection); // connection
+        gen.Emit(OpCodes.Ldarg_0); // this
+        gen.Emit(OpCodes.Ldstr, method.Name); // member
+        gen.Emit(OpCodes.Ldloc_1); // result
+
+        var retForProxy = typeof(DBusConnection).GetMethod(nameof(DBusConnection.GetReturnForProxy), BindingFlags.NonPublic | BindingFlags.Instance)!
+                                                .MakeGenericMethod(subReturnType);
+
+        gen.Emit(OpCodes.Callvirt, retForProxy!); // connection.CallFromProxy()
+
         var fromResult = typeof(Task).GetMethod(nameof(Task.FromResult), BindingFlags.Public | BindingFlags.Static)!
                                      .MakeGenericMethod(subReturnType);
         gen.Emit(OpCodes.Call, fromResult);

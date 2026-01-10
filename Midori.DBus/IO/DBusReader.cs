@@ -70,4 +70,14 @@ public class DBusReader
         t.Read(Stream);
         return t;
     }
+
+    internal object Read(IDBusValue val)
+    {
+        if (val is IHasEncoding enc)
+            enc.Encoding = DefaultEncoding;
+
+        Align(val.GetAlignment());
+        val.Read(Stream);
+        return val.Value;
+    }
 }

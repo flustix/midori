@@ -12,7 +12,8 @@ public class TestObjectImpl
         await connection.Connect();
 
         var b = connection.CreateProxy<IBaseType>("org.freedesktop.DBus", "/org/freedesktop/DBus");
-        await b.RequestName("moe.flux.Midori", 0);
+        var u = await b.RequestName("moe.flux.Midori", 0);
+        Logger.Log($"{u}");
 
         await connection.Close();
     }
@@ -42,7 +43,7 @@ public class TestObjectImpl
             list.Add(flags);
 
             var result = connection.CallFromProxy(this, "", list).Result;
-            return Task.FromResult<uint>(default);
+            return Task.FromResult(connection.GetReturnForProxy<uint>(this, "", result));
         }
     }
 }
