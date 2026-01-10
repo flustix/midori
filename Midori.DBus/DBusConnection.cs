@@ -1,8 +1,11 @@
 using System.Diagnostics;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Security.Authentication;
 using System.Text;
+using Midori.DBus.Attributes;
 using Midori.DBus.Exceptions;
+using Midori.DBus.Impl;
 using Midori.DBus.IO;
 using Midori.DBus.Values;
 using Midori.Logging;
@@ -28,6 +31,8 @@ public class DBusConnection
     {
         this.address = address;
     }
+
+    #region Connect / Close
 
     public async Task Connect()
     {
@@ -60,6 +65,8 @@ public class DBusConnection
 
         await stream.DisposeAsync();
     }
+
+    #endregion
 
     #region Authentication
 
@@ -193,6 +200,18 @@ public class DBusConnection
 
     #endregion
 
+    public T CreateProxy<T>(string destination, string path)
+        where T : class
+    {
+        var impl = DBusImplBuilder<T>.Build(this);
+
+        var obj = (impl as DBusObject)!;
+        obj.Destination = destination;
+        obj.Path = path;
+
+        return impl;
+    }
+
     public async Task<DBusMessage> CallMethod(string dest, string path, string @interface, string member, Action<DBusWriter>? write = null)
     {
         var s = serial++;
@@ -215,6 +234,39 @@ public class DBusConnection
             throw new TimeoutException();
 
         return tsc.Task.Result;
+    }
+
+    internal async Task<DBusMessage> CallFromProxy(DBusObject obj, string member, List<object> parameters)
+    {
+        var objType = obj.GetType();
+        var typeParams = objType.GetMethod(member, BindingFlags.Instance | BindingFlags.Public)!.GetParameters();
+
+        var attrs = objType.GetInterfaces().SelectMany(x => x.GetCustomAttributes());
+        var intf = attrs.OfType<DBusInterfaceAttribute>().FirstOrDefault()?.Interface;
+        if (intf is null) throw new InvalidOperationException($"{objType.Name} is missing a {nameof(DBusInterfaceAttribute)}.");
+
+        return await CallMethod(obj.Destination, obj.Path, intf, member, w =>
+        {
+            for (var i = 0; i < typeParams.Length; i++)
+            {
+                var type = typeParams[i].ParameterType;
+                var val = parameters[i];
+
+                switch (type.Name)
+                {
+                    case nameof(String):
+                        w.WriteString((string)val);
+                        break;
+
+                    case nameof(UInt32):
+                        w.WriteUInt32((uint)val);
+                        break;
+
+                    default:
+                        throw new InvalidOperationException($"Invalid parameter type {type}.");
+                }
+            }
+        });
     }
 
     internal async Task<DBusMessage> CallDBusMethod(string member, Action<DBusWriter>? write = null) =>
