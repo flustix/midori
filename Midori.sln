@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Midori", "Midori/Midori.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Midori.Tests", "Midori.Tests\Midori.Tests.csproj", "{0B78496A-8DD9-47D7-A4B2-73F90D370971}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Midori.DBus", "Midori.DBus\Midori.DBus.csproj", "{30CA9FB7-3913-4498-9328-CA5496781CA7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{0B78496A-8DD9-47D7-A4B2-73F90D370971}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0B78496A-8DD9-47D7-A4B2-73F90D370971}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0B78496A-8DD9-47D7-A4B2-73F90D370971}.Release|Any CPU.Build.0 = Release|Any CPU
+		{30CA9FB7-3913-4498-9328-CA5496781CA7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{30CA9FB7-3913-4498-9328-CA5496781CA7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{30CA9FB7-3913-4498-9328-CA5496781CA7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{30CA9FB7-3913-4498-9328-CA5496781CA7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
