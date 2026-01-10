@@ -47,8 +47,16 @@ public class DBusWriter
 
     private void writeValue(IDBusValue val)
     {
-        Pad((int)val.GetAlignment());
+        Pad(val.GetAlignment());
         val.Write(writer);
         Signature += val.GetSignature();
+    }
+
+    internal void Write(IDBusValue val)
+    {
+        if (val is IHasEncoding enc)
+            enc.Encoding = DefaultEncoding;
+
+        writeValue(val);
     }
 }

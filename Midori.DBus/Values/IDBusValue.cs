@@ -5,10 +5,13 @@ namespace Midori.DBus.Values;
 
 public interface IDBusValue
 {
+    object Value { get; set; }
+
     void Read(Stream stream);
     void Write(BinaryWriter writer);
 
     private static readonly Dictionary<string, Type> signature_mapping = new();
+    private static readonly Dictionary<Type, Type> type_mapping = new();
 
     static IDBusValue()
     {
@@ -20,15 +23,30 @@ public interface IDBusValue
         {
             var attr = type.GetCustomAttribute<DBusSignatureAttribute>() ?? throw new InvalidOperationException("Value does not have signature attribute.");
             signature_mapping[attr.Signature] = type;
+            type_mapping[attr.BaseType] = type;
         }
     }
 
     public static IDBusValue GetForSignature(string sig) => (Activator.CreateInstance(signature_mapping[sig]) as IDBusValue)!;
+
+    public static IDBusValue GetForType(Type type)
+    {
+        if (!type_mapping.TryGetValue(type, out var mapping))
+            throw new InvalidOperationException($"Type {type} does not have a DBusValue associated with it.");
+
+        return (Activator.CreateInstance(type_mapping[type]) as IDBusValue)!;
+    }
 }
 
 public interface IDBusValue<T> : IDBusValue
 {
-    T Value { get; set; }
+    new T Value { get; set; }
+
+    object IDBusValue.Value
+    {
+        get => Value!;
+        set => Value = (T)value;
+    }
 }
 
 public static class DBusValueExtensions
@@ -38,7 +56,7 @@ public static class DBusValueExtensions
     public static int? AsInt32(this IDBusValue? val) => val.getAsS<DBusInt32Value, int>();
     public static uint? AsUInt32(this IDBusValue? val) => val.getAsS<DBusUInt32Value, uint>();
     public static string? AsString(this IDBusValue? val) => val.getAsC<DBusStringValue, string>();
-    public static string? AsObjectPath(this IDBusValue? val) => val.getAsC<DBusObjectPathValue, string>();
+    public static string? AsObjectPath(this IDBusValue? val) => val.getAsC<DBusObjectPathValue, DBusObjectPath>();
     public static string? AsSignature(this IDBusValue? val) => val.getAsC<DBusSignatureValue, string>();
 
     private static T? getAsS<V, T>(this IDBusValue? value)

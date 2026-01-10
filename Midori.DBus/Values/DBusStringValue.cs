@@ -4,7 +4,7 @@ using Midori.Utils.Extensions;
 
 namespace Midori.DBus.Values;
 
-[DBusSignature("s", 4)]
+[DBusSignature("s", 4, typeof(string))]
 public class DBusStringValue : IDBusValue<string>, IHasEncoding
 {
     public Encoding Encoding { get; set; } = Encoding.UTF8;

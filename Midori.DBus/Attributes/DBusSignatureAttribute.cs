@@ -8,10 +8,12 @@ public class DBusSignatureAttribute : Attribute
 {
     public string Signature { get; }
     public int Alignment { get; }
+    public Type BaseType { get; }
 
-    public DBusSignatureAttribute(string signature, int align)
+    public DBusSignatureAttribute(string signature, int align, Type baseType)
     {
         Signature = signature;
         Alignment = align;
+        BaseType = baseType;
     }
 }

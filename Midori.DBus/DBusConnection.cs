@@ -252,19 +252,9 @@ public class DBusConnection
                 var type = typeParams[i].ParameterType;
                 var val = parameters[i];
 
-                switch (type.Name)
-                {
-                    case nameof(String):
-                        w.WriteString((string)val);
-                        break;
-
-                    case nameof(UInt32):
-                        w.WriteUInt32((uint)val);
-                        break;
-
-                    default:
-                        throw new InvalidOperationException($"Invalid parameter type {type}.");
-                }
+                var dval = IDBusValue.GetForType(type);
+                dval.Value = val;
+                w.Write(dval);
             }
         });
     }

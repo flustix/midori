@@ -13,6 +13,8 @@ public class TestObjectImpl
 
         var b = connection.CreateProxy<IBaseType>("org.freedesktop.DBus", "/org/freedesktop/DBus");
         await b.RequestName("moe.flux.Midori", 0);
+
+        await connection.Close();
     }
 
     [DBusInterface("org.freedesktop.DBus")]
