@@ -42,21 +42,24 @@ public class DBusMessage
         set => Headers[DBusHeaderID.Signature] = new DBusSignatureValue { Value = value };
     }
 
-    public byte[] Body { get; }
+    public byte[] Body { get; private set; }
     public Dictionary<DBusHeaderID, IDBusValue> Headers { get; }
 
-    public DBusMessage(DBusEndian endian, DBusMessageType type, int flags, int version, uint serial, byte[] body, Dictionary<DBusHeaderID, IDBusValue>? headers = null)
+    private DBusWriter? writer;
+
+    public DBusMessage(DBusEndian endian, DBusMessageType type, int flags, int version, uint serial, byte[]? body = null, Dictionary<DBusHeaderID, IDBusValue>? headers = null)
     {
         Endian = endian;
         Type = type;
         Flags = flags;
         Version = version;
         Serial = serial;
-        Body = body;
+        Body = body ?? [];
         Headers = headers ?? new Dictionary<DBusHeaderID, IDBusValue>();
     }
 
     public DBusReader GetBodyReader() => new(Body);
+    public DBusWriter GetBodyWriter() => writer ??= new DBusWriter();
 
     public void SetMethodCall(string dest, string path, string @interface, string member)
     {
@@ -71,6 +74,12 @@ public class DBusMessage
     {
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
+
+        if (writer != null)
+        {
+            Body = writer.Stream.ToArray();
+            Signature = writer.Signature;
+        }
 
         bw.Write((byte)Endian);
         bw.Write((byte)Type);

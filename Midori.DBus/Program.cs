@@ -15,6 +15,9 @@ internal static class Program
         var act = await conn.ListActivatableNames();
         act.ForEach(x => Logger.Log(x));
 
+        var own = await conn.NameHasOwner("org.kde.StatusNotifierWatcher");
+        Logger.Log($"Is owned: {own}");
+
         await Task.Delay(-1);
     }
 }

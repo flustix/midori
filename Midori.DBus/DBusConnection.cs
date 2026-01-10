@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Text;
 using Midori.DBus.Exceptions;
+using Midori.DBus.IO;
 using Midori.DBus.Values;
 using Midori.Logging;
 using Midori.Utils.Extensions;
@@ -169,12 +170,13 @@ public class DBusConnection
 
     #endregion
 
-    public async Task<DBusMessage> CallMethod(string dest, string path, string @interface, string member)
+    public async Task<DBusMessage> CallMethod(string dest, string path, string @interface, string member, Action<DBusWriter>? write = null)
     {
         var s = serial++;
 
-        var msg = new DBusMessage(DBusEndian.Little, DBusMessageType.MethodCall, 0, 1, s, [], new());
+        var msg = new DBusMessage(DBusEndian.Little, DBusMessageType.MethodCall, 0, 1, s);
         msg.SetMethodCall(dest, path, @interface, member);
+        write?.Invoke(msg.GetBodyWriter());
 
         var tsc = new TaskCompletionSource<DBusMessage>();
 
@@ -185,7 +187,8 @@ public class DBusConnection
         return await tsc.Task;
     }
 
-    internal async Task<DBusMessage> CallDBusMethod(string member) => await CallMethod("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", member);
+    internal async Task<DBusMessage> CallDBusMethod(string member, Action<DBusWriter>? write = null) =>
+        await CallMethod("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", member, write);
 
     #region DBus-Methods
 
@@ -228,6 +231,13 @@ public class DBusConnection
         }
 
         return list;
+    }
+
+    public async Task<bool> NameHasOwner(string name)
+    {
+        var msg = await CallDBusMethod("NameHasOwner", w => w.WriteString(name));
+        var read = msg.GetBodyReader();
+        return read.ReadByte() == 1;
     }
 
     #endregion

@@ -34,6 +34,7 @@ public interface IDBusValue<T> : IDBusValue
 public static class DBusValueExtensions
 {
     public static byte? AsByte(this IDBusValue? val) => val.getAsS<DBusByteValue, byte>();
+    public static bool? AsBool(this IDBusValue? val) => val.getAsS<DBusBoolValue, bool>();
     public static int? AsInt32(this IDBusValue? val) => val.getAsS<DBusInt32Value, int>();
     public static uint? AsUInt32(this IDBusValue? val) => val.getAsS<DBusUInt32Value, uint>();
     public static string? AsString(this IDBusValue? val) => val.getAsC<DBusStringValue, string>();

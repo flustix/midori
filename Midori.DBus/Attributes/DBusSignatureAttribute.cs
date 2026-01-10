@@ -1,5 +1,8 @@
+using JetBrains.Annotations;
+
 namespace Midori.DBus.Attributes;
 
+[MeansImplicitUse]
 [AttributeUsage(AttributeTargets.Class)]
 public class DBusSignatureAttribute : Attribute
 {

@@ -19,10 +19,22 @@ public class DBusReader
 
     public void Align(int p) => Stream.AlignRead((uint)Stream.Position, p);
 
+    public byte ReadByte() => readValue<DBusByteValue>().Value;
+    public bool ReadBool() => readValue<DBusBoolValue>().Value;
+
+    public int ReadInt32() => readValue<DBusInt32Value>().Value;
+    public uint ReadUInt32() => readValue<DBusUInt32Value>().Value;
+
     public string ReadString(Encoding? enc = null)
     {
         enc ??= DefaultEncoding;
         return readValue<DBusStringValue>(x => x.Encoding = enc).Value;
+    }
+
+    public string ReadObjectPath(Encoding? enc = null)
+    {
+        enc ??= DefaultEncoding;
+        return readValue<DBusObjectPathValue>(x => x.Encoding = enc).Value;
     }
 
     public string ReadSignature(Encoding? enc = null)
@@ -31,14 +43,11 @@ public class DBusReader
         return readValue<DBusSignatureValue>(x => x.Encoding = enc).Value;
     }
 
-    public byte ReadByte() => readValue<DBusByteValue>().Value;
-
-    public uint ReadUInt32() => readValue<DBusUInt32Value>().Value;
-
     private T readValue<T>(Action<T>? before = null)
         where T : IDBusValue, new()
     {
         var t = new T();
+        before?.Invoke(t);
         t.Read(Stream);
         return t;
     }
