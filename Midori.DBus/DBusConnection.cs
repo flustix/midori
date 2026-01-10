@@ -18,6 +18,7 @@ public class DBusConnection
 
     private Socket? socket;
     private NetworkStream? stream;
+    private bool closed;
 
     private Dictionary<uint, TaskCompletionSource<DBusMessage>> waiting { get; } = new();
 
@@ -33,7 +34,7 @@ public class DBusConnection
         socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         var ep = new UnixDomainSocketEndPoint(address.Path);
 
-        logger.Add($"connecting with {ep.ToString()}", LogLevel.Debug);
+        logger.Add($"connecting with {ep}", LogLevel.Debug);
         await socket.ConnectAsync(ep);
 
         stream = new NetworkStream(socket);
@@ -45,6 +46,19 @@ public class DBusConnection
         thread.Start();
 
         await helloTask.Task;
+    }
+
+    public async Task Close()
+    {
+        closed = true;
+
+        if (socket is null) return;
+        if (stream is null) return;
+
+        await socket.DisconnectAsync(false);
+        socket.Dispose();
+
+        await stream.DisposeAsync();
     }
 
     #region Authentication
@@ -119,9 +133,21 @@ public class DBusConnection
             else helloTask.SetResult();
         });
 
-        while (socket.Connected)
+        while (socket.Connected && !closed)
         {
-            var message = DBusMessage.ReadMessage(stream);
+            DBusMessage message;
+
+            try
+            {
+                message = DBusMessage.ReadMessage(stream);
+            }
+            catch (IOException)
+            {
+                if (closed)
+                    return;
+
+                throw;
+            }
 
             switch (message.Type)
             {
@@ -184,7 +210,14 @@ public class DBusConnection
             waiting.Add(s, tsc);
 
         SendMessage(msg);
-        return await tsc.Task;
+
+        var timeout = Task.Delay(20000);
+        await Task.WhenAny(tsc.Task, timeout);
+
+        if (!tsc.Task.IsCompleted)
+            throw new TimeoutException();
+
+        return tsc.Task.Result;
     }
 
     internal async Task<DBusMessage> CallDBusMethod(string member, Action<DBusWriter>? write = null) =>
