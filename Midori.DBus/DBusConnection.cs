@@ -135,18 +135,15 @@ public class DBusConnection
 
         while (socket.Connected && !closed)
         {
-            DBusMessage message;
+            DBusMessage? message;
 
             try
             {
                 message = DBusMessage.ReadMessage(stream);
             }
-            catch (IOException)
+            catch (IOException) when (closed)
             {
-                if (closed)
-                    return;
-
-                throw;
+                return;
             }
 
             switch (message.Type)

@@ -1,3 +1,5 @@
+using Midori.DBus.Values;
+
 namespace Midori.DBus.Tests;
 
 public class TestMethodCalls
@@ -40,13 +42,24 @@ public class TestMethodCalls
     [Test]
     public async Task TestObjectProperty()
     {
-        var msg = await connection.CallMethod("org.kde.StatusNotifierWatcher", "/StatusNotifierWatcher", "org.freedesktop.DBus.Properties", "Get", w =>
+        var msg = await connection.CallMethod("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.Properties", "Get", w =>
         {
-            w.WriteString("org.kde.StatusNotifierWatcher");
-            w.WriteString("ProtocolVersion");
+            w.WriteString("org.freedesktop.DBus");
+            w.WriteString("Interfaces");
         });
 
         var read = msg.GetBodyReader();
-        Logger.Log($"SNW ProtoVersion: {read.ReadInt32()}");
+        var sig = read.ReadSignature();
+
+        switch (sig)
+        {
+            case "as":
+                var interfaces = read.ReadArray<DBusStringValue, string>();
+                interfaces.ForEach(x => Logger.Log(x));
+                break;
+
+            default:
+                throw new InvalidOperationException();
+        }
     }
 }
