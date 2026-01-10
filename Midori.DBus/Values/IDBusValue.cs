@@ -63,4 +63,11 @@ public static class DBusValueExtensions
         var attr = type.GetCustomAttribute<DBusSignatureAttribute>() ?? throw new InvalidOperationException("Value does not have signature attribute.");
         return attr.Signature;
     }
+
+    public static int GetAlignment(this IDBusValue val)
+    {
+        var type = val.GetType();
+        var attr = type.GetCustomAttribute<DBusSignatureAttribute>() ?? throw new InvalidOperationException("Value does not have signature attribute.");
+        return attr.Alignment;
+    }
 }

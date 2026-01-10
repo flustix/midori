@@ -47,6 +47,7 @@ public class DBusWriter
 
     private void writeValue(IDBusValue val)
     {
+        Pad((int)val.GetAlignment());
         val.Write(writer);
         Signature += val.GetSignature();
     }

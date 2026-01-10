@@ -3,7 +3,7 @@ using Midori.Utils.Extensions;
 
 namespace Midori.DBus.Values;
 
-[DBusSignature("u")]
+[DBusSignature("u", 4)]
 public class DBusUInt32Value : IDBusValue<uint>
 {
     public uint Value { get; set; }

@@ -43,11 +43,30 @@ public class DBusReader
         return readValue<DBusSignatureValue>(x => x.Encoding = enc).Value;
     }
 
+    public List<V> ReadArray<T, V>()
+        where T : IDBusValue<V>, new()
+    {
+        var len = ReadUInt32();
+        var list = new List<V>();
+
+        while (StreamPosition < len)
+        {
+            list.Add(readValue<T>(x =>
+            {
+                if (x is IHasEncoding e)
+                    e.Encoding = DefaultEncoding;
+            }).Value);
+        }
+
+        return list;
+    }
+
     private T readValue<T>(Action<T>? before = null)
         where T : IDBusValue, new()
     {
         var t = new T();
         before?.Invoke(t);
+        Align(t.GetAlignment());
         t.Read(Stream);
         return t;
     }

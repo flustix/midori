@@ -199,45 +199,51 @@ public class DBusConnection
         return body.ReadString();
     }
 
+    public async Task<uint> RequestName(string name, uint flags)
+    {
+        var msg = await CallDBusMethod("RequestName", w =>
+        {
+            w.WriteString(name);
+            w.WriteUInt32(flags);
+        });
+
+        var read = msg.GetBodyReader();
+        return read.ReadUInt32();
+    }
+
+    public async Task<uint> ReleaseName(string name)
+    {
+        var msg = await CallDBusMethod("ReleaseName", w => w.WriteString(name));
+        var read = msg.GetBodyReader();
+        return read.ReadUInt32();
+    }
+
+    public async Task<List<string>> ListQueuedOwners(string name)
+    {
+        var msg = await CallDBusMethod("ListQueuedOwners", w => w.WriteString(name));
+        var read = msg.GetBodyReader();
+        return read.ReadArray<DBusStringValue, string>();
+    }
+
     public async Task<List<string>> ListNames()
     {
         var msg = await CallDBusMethod("ListNames");
-
         var read = msg.GetBodyReader();
-        var len = read.ReadUInt32();
-        var list = new List<string>();
-
-        while (read.StreamPosition < len)
-        {
-            read.Align(4);
-            list.Add(read.ReadString());
-        }
-
-        return list;
+        return read.ReadArray<DBusStringValue, string>();
     }
 
     public async Task<List<string>> ListActivatableNames()
     {
         var msg = await CallDBusMethod("ListActivatableNames");
-
         var read = msg.GetBodyReader();
-        var len = read.ReadUInt32();
-        var list = new List<string>();
-
-        while (read.StreamPosition < len)
-        {
-            read.Align(4);
-            list.Add(read.ReadString());
-        }
-
-        return list;
+        return read.ReadArray<DBusStringValue, string>();
     }
 
     public async Task<bool> NameHasOwner(string name)
     {
         var msg = await CallDBusMethod("NameHasOwner", w => w.WriteString(name));
         var read = msg.GetBodyReader();
-        return read.ReadByte() == 1;
+        return read.ReadBool();
     }
 
     #endregion

@@ -7,9 +7,11 @@ namespace Midori.DBus.Attributes;
 public class DBusSignatureAttribute : Attribute
 {
     public string Signature { get; }
+    public int Alignment { get; }
 
-    public DBusSignatureAttribute(string signature)
+    public DBusSignatureAttribute(string signature, int align)
     {
         Signature = signature;
+        Alignment = align;
     }
 }

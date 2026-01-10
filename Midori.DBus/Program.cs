@@ -9,6 +9,8 @@ internal static class Program
         var conn = new DBusConnection(DBusAddress.Session);
         await conn.Connect();
 
+        await conn.RequestName("moe.flux.Midori", 0);
+
         var names = await conn.ListNames();
         names.ForEach(x => Logger.Log(x));
 

@@ -2,7 +2,7 @@ using Midori.DBus.Attributes;
 
 namespace Midori.DBus.Values;
 
-[DBusSignature("y")]
+[DBusSignature("y", 1)]
 public class DBusByteValue : IDBusValue<byte>
 {
     public byte Value { get; set; }
