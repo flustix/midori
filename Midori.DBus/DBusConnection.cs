@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics;
 using System.Net.Sockets;
 using System.Reflection;
@@ -249,12 +250,41 @@ public class DBusConnection
         {
             for (var i = 0; i < typeParams.Length; i++)
             {
-                var type = typeParams[i].ParameterType;
-                var val = parameters[i];
+                handle(typeParams[i].ParameterType, parameters[i]);
 
-                var dval = IDBusValue.GetForType(type);
-                dval.Value = val;
-                w.Write(dval);
+                void handle(Type type, object val)
+                {
+                    if (type.IsGenericType)
+                    {
+                        if (type.GetGenericTypeDefinition() == typeof(List<>))
+                        {
+                            var gen = type.GetGenericArguments().First();
+                            w.WriteArrayStart(IDBusValue.GetForType(gen));
+                            var enu = (val as IEnumerable)!;
+
+                            foreach (var o in enu)
+                                w.Write(IDBusValue.GetForType(o.GetType(), o));
+
+                            w.WriteArrayEnd();
+                        }
+                        else if (type.GetGenericTypeDefinition() == typeof(Dictionary<,>))
+                        {
+                            var keyType = type.GetGenericArguments().First();
+                            var valType = type.GetGenericArguments().Last();
+
+                            var gen = typeof(DBusStructValue<,>).MakeGenericType(keyType, valType);
+                            var structVal = (IDBusValue)Activator.CreateInstance(gen)!;
+
+                            w.WriteArrayStart(structVal);
+                            // TODO: actually write values
+                            w.WriteArrayEnd();
+                        }
+
+                        return;
+                    }
+
+                    w.Write(IDBusValue.GetForType(type, val));
+                }
             }
         });
     }

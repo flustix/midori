@@ -36,6 +36,13 @@ public interface IDBusValue
 
         return (Activator.CreateInstance(type_mapping[type]) as IDBusValue)!;
     }
+
+    public static IDBusValue GetForType(Type type, object val)
+    {
+        var dval = GetForType(type);
+        dval.Value = val;
+        return dval;
+    }
 }
 
 public interface IDBusValue<T> : IDBusValue
@@ -75,14 +82,17 @@ public static class DBusValueExtensions
         return cast?.Value;
     }
 
-    public static string GetSignature(this IDBusValue val)
+    public static string GetDBusSignature(this IDBusValue val)
     {
+        if (val is IDynamicSignature d)
+            return d.GetSignature();
+
         var type = val.GetType();
         var attr = type.GetCustomAttribute<DBusSignatureAttribute>() ?? throw new InvalidOperationException("Value does not have signature attribute.");
         return attr.Signature;
     }
 
-    public static int GetAlignment(this IDBusValue val)
+    public static int GetDBusAlignment(this IDBusValue val)
     {
         var type = val.GetType();
         var attr = type.GetCustomAttribute<DBusSignatureAttribute>() ?? throw new InvalidOperationException("Value does not have signature attribute.");

@@ -66,7 +66,7 @@ public class DBusReader
     {
         var t = new T();
         before?.Invoke(t);
-        Align(t.GetAlignment());
+        Align(t.GetDBusAlignment());
         t.Read(Stream);
         return t;
     }
@@ -76,7 +76,7 @@ public class DBusReader
         if (val is IHasEncoding enc)
             enc.Encoding = DefaultEncoding;
 
-        Align(val.GetAlignment());
+        Align(val.GetDBusAlignment());
         val.Read(Stream);
         return val.Value;
     }

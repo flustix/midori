@@ -1,3 +1,4 @@
+using Midori.DBus.Exceptions;
 using Midori.DBus.IO;
 using Midori.DBus.Values;
 using Midori.Utils.Extensions;
@@ -95,7 +96,7 @@ public class DBusMessage
         {
             bw.PadTo(8);
             bw.Write((byte)key);
-            bw.WriteStringNullByte(val.GetSignature());
+            bw.WriteStringNullByte(val.GetDBusSignature());
             val.Write(bw);
         }
 
@@ -108,13 +109,19 @@ public class DBusMessage
         bw.PadTo(8);
         bw.Write(Body);
 
-        stream.Write(ms.ToArray());
+        var buffer = ms.ToArray();
+        File.WriteAllBytes("write.bin", buffer);
+        stream.Write(buffer);
     }
 
     internal static DBusMessage ReadMessage(Stream stream)
     {
         var endian = (DBusEndian)stream.ReadByte();
         var type = (DBusMessageType)stream.ReadByte();
+
+        if ((byte)endian == 255 && (byte)type == 255)
+            throw new DBusException("Invalid data sent to DBus server.");
+
         var flags = stream.ReadByte();
         var version = stream.ReadByte();
         var length = stream.ReadUInt32(endian == DBusEndian.Big);

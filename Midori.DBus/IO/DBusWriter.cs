@@ -9,7 +9,7 @@ public class DBusWriter
     public Encoding DefaultEncoding { get; set; } = Encoding.UTF8;
 
     internal MemoryStream Stream { get; }
-    internal string Signature { get; private set; } = string.Empty;
+    internal string Signature { get; set; } = string.Empty;
 
     private BinaryWriter writer { get; }
 
@@ -45,11 +45,41 @@ public class DBusWriter
         Value = str
     });
 
+    private readonly Stack<ArrayStart> arrays = new();
+
+    public void WriteArrayStart(IDBusValue val)
+    {
+        var pad = val.GetDBusAlignment();
+        var count = Stream.Position;
+
+        writer.Write((uint)0);
+        Pad(pad);
+
+        Signature += "a" + val.GetDBusSignature();
+        var start = new ArrayStart(count, Stream.Position);
+        arrays.Push(start);
+    }
+
+    public void WriteArrayEnd()
+    {
+        var start = arrays.Pop();
+        var diff = Stream.Position - start.StartPosition;
+        var current = Stream.Position;
+
+        Stream.Seek(start.CountPosition, SeekOrigin.Begin);
+        writer.Write(diff);
+        Stream.Seek(current, SeekOrigin.Begin);
+    }
+
+    public void WriteStruct<T1, T2>(DBusStructValue<T1, T2> val) => writeValue(val);
+
     private void writeValue(IDBusValue val)
     {
-        Pad(val.GetAlignment());
+        if (arrays.Count == 0)
+            Signature += val.GetDBusSignature();
+
+        Pad(val.GetDBusAlignment());
         val.Write(writer);
-        Signature += val.GetSignature();
     }
 
     internal void Write(IDBusValue val)
@@ -58,5 +88,17 @@ public class DBusWriter
             enc.Encoding = DefaultEncoding;
 
         writeValue(val);
+    }
+
+    public class ArrayStart
+    {
+        public long CountPosition { get; }
+        public long StartPosition { get; }
+
+        public ArrayStart(long countPosition, long startPosition)
+        {
+            CountPosition = countPosition;
+            StartPosition = startPosition;
+        }
     }
 }
