@@ -4,26 +4,25 @@ using Midori.DBus.Values;
 
 namespace Midori.DBus.Tests;
 
-public class TestObjectImpl
+public class TestObjectImpl : BaseConnectionTest
 {
     [Test]
-    public async Task TestBuild()
+    public async Task TestRequestName()
     {
-        var connection = new DBusConnection(DBusAddress.Session);
-        await connection.Connect();
-
-        var b = connection.CreateProxy<IBaseType>("org.freedesktop.DBus", "/org/freedesktop/DBus");
+        var b = Connection.CreateProxy<IBaseType>("org.freedesktop.DBus", "/org/freedesktop/DBus");
         var u = await b.RequestName("moe.flux.Midori", 0);
         Logger.Log($"{u}");
+    }
 
-        var file = connection.CreateProxy<IFileChooser>("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop");
+    [Test]
+    public async Task TestPickFile()
+    {
+        var file = Connection.CreateProxy<IFileChooser>("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop");
         var res = await file.OpenFile("/Midori", "title", new Dictionary<string, DBusVariantValue>
         {
             { "", new DBusVariantValue() }
         });
         Logger.Log($"{res}");
-
-        await connection.Close();
     }
 
     [DBusInterface("org.freedesktop.DBus")]

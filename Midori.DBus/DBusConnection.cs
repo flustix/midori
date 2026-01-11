@@ -18,6 +18,7 @@ public class DBusConnection
 {
     private readonly Logger logger = Logger.GetLogger("DBus");
 
+    public string ClientName { get; private set; } = string.Empty;
     private DBusAddress address { get; }
 
     private Socket? socket;
@@ -26,7 +27,7 @@ public class DBusConnection
 
     private Dictionary<uint, TaskCompletionSource<DBusMessage>> waiting { get; } = new();
 
-    private readonly TaskCompletionSource helloTask = new();
+    private readonly TaskCompletionSource<string> helloTask = new();
 
     public DBusConnection(DBusAddress address)
     {
@@ -51,7 +52,7 @@ public class DBusConnection
         var thread = new Thread(startReading) { Name = "DBusStreamReader" };
         thread.Start();
 
-        await helloTask.Task;
+        ClientName = await helloTask.Task;
     }
 
     public async Task Close()
@@ -138,7 +139,7 @@ public class DBusConnection
         Hello().ContinueWith(x =>
         {
             if (x.IsFaulted) helloTask.SetException(x.Exception);
-            else helloTask.SetResult();
+            else helloTask.SetResult(x.Result);
         });
 
         while (socket.Connected && !closed)
