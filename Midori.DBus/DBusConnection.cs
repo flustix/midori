@@ -157,6 +157,12 @@ public class DBusConnection
 
             switch (message.Type)
             {
+                case DBusMessageType.MethodCall:
+                {
+                    logger.Add($"MethodCall: {message.Path} {message.Interface}.{message.Member} {message.Signature}");
+                    break;
+                }
+
                 case DBusMessageType.MethodReturn:
                 {
                     var se = (message.Headers[DBusHeaderID.ReplySerial] as DBusUInt32Value)!.Value;
@@ -190,6 +196,10 @@ public class DBusConnection
 
                     break;
                 }
+
+                default:
+                    logger.Add($"Server sent '{message.Type}' but we aren't handling this yet!", LogLevel.Warning);
+                    break;
             }
         }
     }
@@ -236,6 +246,13 @@ public class DBusConnection
             throw new TimeoutException();
 
         return tsc.Task.Result;
+    }
+
+    public async Task<string> Introspect(string dest, string path)
+    {
+        var msg = await CallMethod(dest, path, "org.freedesktop.DBus.Introspectable", "Introspect");
+        var body = msg.GetBodyReader();
+        return body.ReadString();
     }
 
     internal async Task<DBusMessage> CallFromProxy(DBusObject obj, string member, List<object> parameters)
