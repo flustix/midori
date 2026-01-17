@@ -9,17 +9,11 @@ public class DBusMessage
 {
     public DBusEndian Endian { get; private set; }
     public DBusMessageType Type { get; private set; }
-    public int Flags { get; private set; }
+    public DBusMessageFlags Flags { get; private set; }
     public int Version { get; private set; }
     public uint Serial { get; private set; }
 
-    public string Destination
-    {
-        get => Headers.GetValueOrDefault(DBusHeaderID.Destination).AsString() ?? string.Empty;
-        set => Headers[DBusHeaderID.Destination] = new DBusStringValue { Value = value };
-    }
-
-    public string Path
+    public DBusObjectPath Path
     {
         get => Headers.GetValueOrDefault(DBusHeaderID.Path).AsObjectPath() ?? string.Empty;
         set => Headers[DBusHeaderID.Path] = new DBusObjectPathValue { Value = value };
@@ -37,6 +31,30 @@ public class DBusMessage
         set => Headers[DBusHeaderID.Member] = new DBusStringValue { Value = value };
     }
 
+    public string ErrorName
+    {
+        get => Headers.GetValueOrDefault(DBusHeaderID.ErrorName).AsString() ?? string.Empty;
+        set => Headers[DBusHeaderID.ErrorName] = new DBusStringValue { Value = value };
+    }
+
+    public uint ReplySerial
+    {
+        get => Headers.GetValueOrDefault(DBusHeaderID.ReplySerial).AsUInt32() ?? 0;
+        set => Headers[DBusHeaderID.ReplySerial] = new DBusUInt32Value { Value = value };
+    }
+
+    public string Destination
+    {
+        get => Headers.GetValueOrDefault(DBusHeaderID.Destination).AsString() ?? string.Empty;
+        set => Headers[DBusHeaderID.Destination] = new DBusStringValue { Value = value };
+    }
+
+    public string Sender
+    {
+        get => Headers.GetValueOrDefault(DBusHeaderID.Sender).AsString() ?? string.Empty;
+        set => Headers[DBusHeaderID.Sender] = new DBusStringValue { Value = value };
+    }
+
     public string Signature
     {
         get => Headers.GetValueOrDefault(DBusHeaderID.Signature).AsSignature() ?? string.Empty;
@@ -48,7 +66,7 @@ public class DBusMessage
 
     private DBusWriter? writer;
 
-    public DBusMessage(DBusEndian endian, DBusMessageType type, int flags, int version, uint serial, byte[]? body = null, Dictionary<DBusHeaderID, IDBusValue>? headers = null)
+    public DBusMessage(DBusEndian endian, DBusMessageType type, DBusMessageFlags flags, int version, uint serial, byte[]? body = null, Dictionary<DBusHeaderID, IDBusValue>? headers = null)
     {
         Endian = endian;
         Type = type;
@@ -69,6 +87,24 @@ public class DBusMessage
         Path = path;
         Interface = @interface;
         Member = member;
+    }
+
+    public DBusMessage CreateReply() => new(DBusEndian.Little, DBusMessageType.MethodReturn, DBusMessageFlags.NoReplyExpected, Version, uint.MaxValue)
+    {
+        ReplySerial = Serial,
+        Destination = Sender
+    };
+
+    public DBusMessage CreateError(Exception ex)
+    {
+        var rpl = CreateReply();
+        rpl.Type = DBusMessageType.Error;
+        rpl.ErrorName = ex.GetType().FullName!;
+
+        var body = rpl.GetBodyWriter();
+        body.WriteString(ex.Message);
+
+        return rpl;
     }
 
     internal void Write(Stream stream)
@@ -108,9 +144,9 @@ public class DBusMessage
 
         bw.PadTo(8);
         bw.Write(Body);
+        File.WriteAllBytes("write.bin", Body);
 
         var buffer = ms.ToArray();
-        File.WriteAllBytes("write.bin", buffer);
         stream.Write(buffer);
     }
 
@@ -122,7 +158,7 @@ public class DBusMessage
         if ((byte)endian == 255 && (byte)type == 255)
             throw new DBusException("Invalid data sent to DBus server.");
 
-        var flags = stream.ReadByte();
+        var flags = (DBusMessageFlags)stream.ReadByte();
         var version = stream.ReadByte();
         var length = stream.ReadUInt32(endian == DBusEndian.Big);
         var serial = stream.ReadUInt32(endian == DBusEndian.Big);
@@ -169,6 +205,15 @@ public enum DBusMessageType : byte
     MethodReturn = 2,
     Error = 3,
     Signal = 4
+}
+
+[Flags]
+public enum DBusMessageFlags : byte
+{
+    None = 0,
+    NoReplyExpected = 1,
+    NoAutoStart = 2,
+    AllowInteractiveAuthorization = 4
 }
 
 public enum DBusHeaderID : byte

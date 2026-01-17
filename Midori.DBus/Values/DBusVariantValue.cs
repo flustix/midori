@@ -22,12 +22,18 @@ public class DBusVariantValue : IDBusValue<IDBusValue>
 
     public DBusVariantValue(object value)
     {
-        Value = IDBusValue.GetForType(value.GetType());
+        Value = IDBusValue.GetForType(value.GetType(), value);
         Signature = new DBusSignatureValue { Value = Value.GetDBusSignature() };
     }
 
     public void Read(Stream stream)
     {
+        Signature = new DBusSignatureValue();
+        Signature.Read(stream);
+
+        Value = IDBusValue.GetForSignature(Signature.Value);
+        stream.AlignRead((uint)stream.Position, Value.GetDBusAlignment());
+        Value.Read(stream);
     }
 
     public void Write(BinaryWriter writer)

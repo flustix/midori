@@ -1,5 +1,6 @@
 using System.Reflection;
 using Midori.DBus.Attributes;
+using Midori.Utils.Extensions;
 
 namespace Midori.DBus.Values;
 
@@ -27,21 +28,44 @@ public interface IDBusValue
         }
     }
 
+    // TODO: this needs to be improved to handle array types and such
     public static IDBusValue GetForSignature(string sig) => (Activator.CreateInstance(signature_mapping[sig]) as IDBusValue)!;
 
     public static IDBusValue GetForType(Type type)
     {
+        var tArgs = new List<Type>();
+
+        if (type.IsGenericType)
+        {
+            tArgs = type.GetGenericArguments().ToList();
+            type = type.GetGenericTypeDefinition();
+        }
+
         if (!type_mapping.TryGetValue(type, out var mapping))
             throw new InvalidOperationException($"Type {type} does not have a DBusValue associated with it.");
 
-        return (Activator.CreateInstance(type_mapping[type]) as IDBusValue)!;
+        if (mapping.IsGenericType)
+            mapping = mapping.MakeGenericType(tArgs.ToArray());
+
+        return (Activator.CreateInstance(mapping) as IDBusValue)!;
     }
 
     public static IDBusValue GetForType(Type type, object val)
     {
+        if (val is IDBusValue d)
+            return d;
+
         var dval = GetForType(type);
         dval.Value = val;
         return dval;
+    }
+
+    internal static T ReadStructPart<T>(Stream stream)
+    {
+        var dval = GetForType(typeof(T));
+        stream.AlignRead((uint)stream.Position, dval.GetDBusAlignment());
+        dval.Read(stream);
+        return (T)dval.Value;
     }
 }
 

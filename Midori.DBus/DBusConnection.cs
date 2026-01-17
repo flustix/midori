@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Diagnostics;
 using System.Net.Sockets;
 using System.Reflection;
@@ -8,15 +7,17 @@ using Midori.DBus.Attributes;
 using Midori.DBus.Exceptions;
 using Midori.DBus.Impl;
 using Midori.DBus.IO;
+using Midori.DBus.Methods;
 using Midori.DBus.Values;
 using Midori.Logging;
+using Midori.Utils;
 using Midori.Utils.Extensions;
 
 namespace Midori.DBus;
 
 public class DBusConnection
 {
-    private readonly Logger logger = Logger.GetLogger("DBus");
+    internal static readonly Logger LOGGER = Logger.GetLogger("DBus");
 
     public string ClientName { get; private set; } = string.Empty;
     private DBusAddress address { get; }
@@ -41,7 +42,7 @@ public class DBusConnection
         socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         var ep = new UnixDomainSocketEndPoint(address.Path);
 
-        logger.Add($"connecting with {ep}", LogLevel.Debug);
+        LOGGER.Add($"connecting with {ep}", LogLevel.Debug);
         await socket.ConnectAsync(ep);
 
         stream = new NetworkStream(socket);
@@ -159,17 +160,28 @@ public class DBusConnection
             {
                 case DBusMessageType.MethodCall:
                 {
-                    logger.Add($"MethodCall: {message.Path} {message.Interface}.{message.Member} {message.Signature}");
+                    var path = message.Path;
+
+                    if (!CallPaths.TryGetValue(path, out var handler))
+                        CallPaths[path] = handler = new DBusPathHandler(this, path);
+
+                    try
+                    {
+                        handler.Handle(message);
+                    }
+                    catch (Exception ex)
+                    {
+                        SendMessage(message.CreateError(ex));
+                    }
+
                     break;
                 }
 
                 case DBusMessageType.MethodReturn:
                 {
-                    var se = (message.Headers[DBusHeaderID.ReplySerial] as DBusUInt32Value)!.Value;
-
                     lock (waiting)
                     {
-                        if (waiting.TryGetValue(se, out var wait))
+                        if (waiting.TryGetValue(message.ReplySerial, out var wait))
                             wait.SetResult(message);
                     }
 
@@ -178,14 +190,13 @@ public class DBusConnection
 
                 case DBusMessageType.Error:
                 {
-                    var se = (message.Headers[DBusHeaderID.ReplySerial] as DBusUInt32Value)!.Value;
-                    var errType = (message.Headers[DBusHeaderID.ErrorName] as DBusStringValue)!.Value;
-                    var errMsg = message.GetBodyReader().ReadString();
-
                     lock (waiting)
                     {
-                        if (waiting.TryGetValue(se, out var wait))
+                        if (waiting.TryGetValue(message.ReplySerial, out var wait))
                         {
+                            var errType = message.ErrorName;
+                            var errMsg = message.GetBodyReader().ReadString();
+
                             wait.SetException(errType switch
                             {
                                 "org.freedesktop.DBus.Error.ServiceUnknown" => new DBusServiceUnknownException(errMsg),
@@ -197,8 +208,30 @@ public class DBusConnection
                     break;
                 }
 
+                case DBusMessageType.Signal:
+                {
+                    var rule = new DBusMatchRule(DBusMatchType.Signal, message.Sender, message.Path, message.Interface, message.Member);
+                    List<MatchRuleEntry> matches;
+
+                    lock (matchRules)
+                        matches = matchRules.Where(x => x.Matches(rule)).ToList();
+
+                    matches.ForEach(x =>
+                    {
+                        try
+                        {
+                            x.Callback.Invoke(message);
+                        }
+                        catch (Exception ex)
+                        {
+                            LOGGER.Add($"Match '{x.Callback}' caused an exception!", LogLevel.Error, ex);
+                        }
+                    });
+                    break;
+                }
+
                 default:
-                    logger.Add($"Server sent '{message.Type}' but we aren't handling this yet!", LogLevel.Warning);
+                    LOGGER.Add($"Server sent '{message.Type}' but we aren't handling this yet!", LogLevel.Warning);
                     break;
             }
         }
@@ -227,8 +260,7 @@ public class DBusConnection
     public async Task<DBusMessage> CallMethod(string dest, string path, string @interface, string member, Action<DBusWriter>? write = null)
     {
         var s = serial++;
-
-        var msg = new DBusMessage(DBusEndian.Little, DBusMessageType.MethodCall, 0, 1, s);
+        var msg = new DBusMessage(DBusEndian.Little, DBusMessageType.MethodCall, DBusMessageFlags.None, 1, s);
         msg.SetMethodCall(dest, path, @interface, member);
         write?.Invoke(msg.GetBodyWriter());
 
@@ -268,41 +300,7 @@ public class DBusConnection
         {
             for (var i = 0; i < typeParams.Length; i++)
             {
-                handle(typeParams[i].ParameterType, parameters[i]);
-
-                void handle(Type type, object val)
-                {
-                    if (type.IsGenericType)
-                    {
-                        if (type.GetGenericTypeDefinition() == typeof(List<>))
-                        {
-                            var gen = type.GetGenericArguments().First();
-                            w.WriteArrayStart(IDBusValue.GetForType(gen));
-                            var enu = (val as IEnumerable)!;
-
-                            foreach (var o in enu)
-                                w.Write(IDBusValue.GetForType(o.GetType(), o));
-
-                            w.WriteArrayEnd();
-                        }
-                        else if (type.GetGenericTypeDefinition() == typeof(Dictionary<,>))
-                        {
-                            var keyType = type.GetGenericArguments().First();
-                            var valType = type.GetGenericArguments().Last();
-
-                            var gen = typeof(DBusStructValue<,>).MakeGenericType(keyType, valType);
-                            var structVal = (IDBusValue)Activator.CreateInstance(gen)!;
-
-                            w.WriteArrayStart(structVal);
-                            // TODO: actually write values
-                            w.WriteArrayEnd();
-                        }
-
-                        return;
-                    }
-
-                    w.Write(IDBusValue.GetForType(type, val));
-                }
+                w.Write(IDBusValue.GetForType(typeParams[i].ParameterType, parameters[i]));
             }
         });
     }
@@ -330,7 +328,7 @@ public class DBusConnection
         return body.ReadString();
     }
 
-    public async Task<uint> RequestName(string name, uint flags)
+    public async Task<uint> RequestName(string name, uint flags = 0)
     {
         var msg = await CallDBusMethod("RequestName", w =>
         {
@@ -375,6 +373,78 @@ public class DBusConnection
         var msg = await CallDBusMethod("NameHasOwner", w => w.WriteString(name));
         var read = msg.GetBodyReader();
         return read.ReadBool();
+    }
+
+    #endregion
+
+    #region Signals
+
+    private List<MatchRuleEntry> matchRules { get; } = new();
+
+    public async Task<InvokeOnDisposal> AddMatch<T>(Action<T> act, DBusMatchRule rule)
+    {
+        var built = rule.Build();
+        var listItem = new MatchRuleEntry(rule, m =>
+        {
+            var body = m.GetBodyReader();
+            var dval = IDBusValue.GetForType(typeof(T));
+            body.Read(dval);
+            act.Invoke((T)dval.Value);
+        });
+
+        lock (matchRules) matchRules.Add(listItem);
+        await CallDBusMethod("AddMatch", w => w.WriteString(built));
+
+        return new InvokeOnDisposal(() =>
+        {
+            lock (matchRules) matchRules.Remove(listItem);
+            _ = CallDBusMethod("RemoveMatch", w => w.WriteString(rule.Build()));
+        });
+    }
+
+    private class MatchRuleEntry
+    {
+        private DBusMatchRule rule { get; }
+        public Action<DBusMessage> Callback { get; }
+
+        public MatchRuleEntry(DBusMatchRule rule, Action<DBusMessage> callback)
+        {
+            this.rule = rule;
+            Callback = callback;
+        }
+
+        public bool Matches(DBusMatchRule r) => rule.Equals(r);
+    }
+
+    #endregion
+
+    #region Callable Interfaces
+
+    internal Dictionary<DBusObjectPath, IDBusPathHandler> CallPaths { get; } = new();
+
+    public void RegisterPathHandler(IDBusPathHandler inst, DBusObjectPath path)
+    {
+        if (CallPaths.TryGetValue(path, out _))
+            throw new InvalidOperationException($"Handler with path {path} is already registered.");
+
+        CallPaths[path] = inst;
+    }
+
+    public void RegisterInterface(IDBusInterfaceHandler inst, DBusObjectPath path)
+    {
+        if (!CallPaths.TryGetValue(path, out var handle))
+            CallPaths[path] = handle = new DBusPathHandler(this, path);
+
+        handle.RegisterInterface(inst);
+    }
+
+    public void RegisterInterface<T>(T inst, DBusObjectPath path)
+        where T : class
+    {
+        if (!CallPaths.TryGetValue(path, out var handle))
+            CallPaths[path] = handle = new DBusPathHandler(this, path);
+
+        handle.RegisterInterface(inst);
     }
 
     #endregion

@@ -12,6 +12,11 @@ internal class DBusImplBuilder<T>
 
     public static T Build(DBusConnection connection)
     {
+        var baseType = typeof(T);
+
+        if (!baseType.IsInterface)
+            throw new InvalidOperationException($"{baseType} is not an interface.");
+
         var name = new AssemblyName(asm_mod);
         var builder = AssemblyBuilder.DefineDynamicAssembly(name, AssemblyBuilderAccess.Run);
         var module = builder.DefineDynamicModule(asm_mod);

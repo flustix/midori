@@ -20,7 +20,7 @@ public class TestObjectImpl : BaseConnectionTest
         var file = Connection.CreateProxy<IFileChooser>("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop");
         var res = await file.OpenFile("/Midori", "title", new Dictionary<string, DBusVariantValue>
         {
-            { "", new DBusVariantValue() }
+            { "multiple", new DBusVariantValue(true) }
         });
         Logger.Log($"{res}");
     }
