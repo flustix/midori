@@ -12,7 +12,7 @@ public class DBusStructValue<T1, T2> : IDBusValue<(T1, T2)>, IDynamicSignature
     {
         Value = (
             IDBusValue.ReadStructPart<T1>(stream),
-            IDBusValue.ReadStructPart<T2>(stream)
+            IDBusValue.ReadStructPart<T2>(stream, typeof(T2) != typeof(DBusVariantValue))
         );
     }
 

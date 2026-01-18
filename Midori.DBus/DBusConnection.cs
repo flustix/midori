@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.Sockets;
 using System.Reflection;
@@ -50,8 +51,11 @@ public class DBusConnection
         if (!auth())
             throw new AuthenticationException();
 
-        var thread = new Thread(startReading) { Name = "DBusStreamReader" };
-        thread.Start();
+        var read = new Thread(startReading) { Name = "DBusStreamReader" };
+        read.Start();
+
+        var write = new Thread(writeMessages) { Name = "DBusStreamWriter" };
+        write.Start();
 
         ClientName = await helloTask.Task;
     }
@@ -171,7 +175,7 @@ public class DBusConnection
                     }
                     catch (Exception ex)
                     {
-                        SendMessage(message.CreateError(ex));
+                        QueueMessage(message.CreateError(ex));
                     }
 
                     break;
@@ -182,7 +186,12 @@ public class DBusConnection
                     lock (waiting)
                     {
                         if (waiting.TryGetValue(message.ReplySerial, out var wait))
-                            wait.SetResult(message);
+                        {
+                            Task.Run(() => wait.SetResult(message));
+                            waiting.Remove(message.ReplySerial);
+                        }
+                        else
+                            LOGGER.Add($"Got reply without matching serial. from:{message.Sender}", LogLevel.Warning);
                     }
 
                     break;
@@ -203,6 +212,8 @@ public class DBusConnection
                                 _ => new DBusException($"{errType}: {errMsg}")
                             });
                         }
+                        else
+                            LOGGER.Add($"Got error without matching serial. from:{message.Sender}", LogLevel.Warning);
                     }
 
                     break;
@@ -225,6 +236,7 @@ public class DBusConnection
                         catch (Exception ex)
                         {
                             LOGGER.Add($"Match '{x.Callback}' caused an exception!", LogLevel.Error, ex);
+                            if (Debugger.IsAttached) throw;
                         }
                     });
                     break;
@@ -237,10 +249,29 @@ public class DBusConnection
         }
     }
 
-    public void SendMessage(DBusMessage message)
+    private readonly ConcurrentQueue<DBusMessage> messageQueue = new();
+
+    public void QueueMessage(DBusMessage message)
     {
         Debug.Assert(stream != null);
-        message.Write(stream);
+        messageQueue.Enqueue(message);
+    }
+
+    private void writeMessages()
+    {
+        Debug.Assert(socket != null);
+        Debug.Assert(stream != null);
+
+        while (socket.Connected && !closed)
+        {
+            if (!messageQueue.TryDequeue(out var next))
+            {
+                Thread.Sleep(10);
+                continue;
+            }
+
+            next.Write(stream);
+        }
     }
 
     #endregion
@@ -251,9 +282,13 @@ public class DBusConnection
         var impl = DBusImplBuilder<T>.Build(this);
 
         var obj = (impl as DBusObject)!;
+        obj.Connection = this;
         obj.Destination = destination;
         obj.Path = path;
+        obj.Interface = typeof(T).GetCustomAttributes(true).OfType<DBusInterfaceAttribute>().FirstOrDefault()?.Interface
+                        ?? throw new InvalidOperationException($"{typeof(T).FullName} is missing a {nameof(DBusInterfaceAttribute)}.");
 
+        obj.RegisterListeners();
         return impl;
     }
 
@@ -264,20 +299,22 @@ public class DBusConnection
         msg.SetMethodCall(dest, path, @interface, member);
         write?.Invoke(msg.GetBodyWriter());
 
-        var tsc = new TaskCompletionSource<DBusMessage>();
+        var tsc = new TaskCompletionSource<DBusMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         lock (waiting)
             waiting.Add(s, tsc);
 
-        SendMessage(msg);
+        QueueMessage(msg);
 
-        var timeout = Task.Delay(20000);
-        await Task.WhenAny(tsc.Task, timeout);
+        await tsc.Task;
+        return tsc.Task.Result;
+
+        /*await Task.WhenAny(tsc.Task, Task.Delay(5000));
 
         if (!tsc.Task.IsCompleted)
             throw new TimeoutException();
 
-        return tsc.Task.Result;
+        return tsc.Task.Result;*/
     }
 
     public async Task<string> Introspect(string dest, string path)
@@ -318,6 +355,20 @@ public class DBusConnection
 
     internal async Task<DBusMessage> CallDBusMethod(string member, Action<DBusWriter>? write = null) =>
         await CallMethod("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", member, write);
+
+    public async Task<T> GetProperty<T>(string dest, string path, string @interface, string member)
+    {
+        var msg = await CallMethod(dest, path, "org.freedesktop.DBus.Properties", "Get", w =>
+        {
+            w.WriteString(@interface);
+            w.WriteString(member);
+        });
+
+        var read = msg.GetBodyReader();
+        var variant = new DBusVariantValue();
+        read.Read(variant);
+        return (T)variant.Value.Value;
+    }
 
     #region DBus-Methods
 
@@ -373,6 +424,13 @@ public class DBusConnection
         var msg = await CallDBusMethod("NameHasOwner", w => w.WriteString(name));
         var read = msg.GetBodyReader();
         return read.ReadBool();
+    }
+
+    public async Task<string> GetNameOwner(string name)
+    {
+        var msg = await CallDBusMethod("GetNameOwner", w => w.WriteString(name));
+        var read = msg.GetBodyReader();
+        return read.ReadString();
     }
 
     #endregion

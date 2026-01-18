@@ -10,7 +10,9 @@ public class DBusDictionaryValue<T1, T2> : IDBusValue<Dictionary<T1, T2>>, IDyna
 
     public void Read(Stream stream)
     {
-        // TODO: missing read
+        var arr = new DBusArray<(T1, T2)>();
+        arr.Read(stream);
+        Value = arr.Value.ToDictionary(x => x.Item1, x => x.Item2);
     }
 
     public void Write(BinaryWriter writer)

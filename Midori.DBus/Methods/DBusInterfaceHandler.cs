@@ -39,7 +39,7 @@ internal class DBusInterfaceHandler : IDBusInterfaceHandler
 
         if (!methods.TryGetValue(member, out var method))
         {
-            connection.SendMessage(message.CreateError(new DBusException("Member does not exist.")));
+            connection.QueueMessage(message.CreateError(new DBusException("Member does not exist.")));
             return;
         }
 
@@ -93,12 +93,12 @@ internal class DBusInterfaceHandler : IDBusInterfaceHandler
                 }
             }
 
-            connection.SendMessage(ret);
+            connection.QueueMessage(ret);
         }
         catch (Exception ex)
         {
             DBusConnection.LOGGER.Add($"error calling interface {name}.{member}:", LogLevel.Error, ex);
-            connection.SendMessage(message.CreateError(ex));
+            connection.QueueMessage(message.CreateError(ex));
         }
     }
 
@@ -125,7 +125,7 @@ internal class DBusInterfaceHandler : IDBusInterfaceHandler
             var dval = IDBusValue.GetForType(prop.PropertyType);
             string access;
 
-            if (prop.CanRead && prop.CanWrite)
+            if (prop is { CanRead: true, CanWrite: true })
                 access = "readwrite";
             else if (prop.CanRead)
                 access = "read";

@@ -58,7 +58,7 @@ internal class DBusPathHandler : IDBusPathHandler
 
                 if (!interfaces.TryGetValue(targetInterface, out var target))
                 {
-                    connection.SendMessage(message.CreateError(new DBusException("Interface does not exist on path.")));
+                    connection.QueueMessage(message.CreateError(new DBusException("Interface does not exist on path.")));
                     return;
                 }
 
@@ -84,7 +84,7 @@ internal class DBusPathHandler : IDBusPathHandler
                     }
                 }
 
-                connection.SendMessage(ret);
+                connection.QueueMessage(ret);
                 return;
             }
 
@@ -95,7 +95,7 @@ internal class DBusPathHandler : IDBusPathHandler
 
         if (!interfaces.TryGetValue(intf, out var handler))
         {
-            connection.SendMessage(message.CreateError(new DBusException("Interface does not exist on path.")));
+            connection.QueueMessage(message.CreateError(new DBusException("Interface does not exist on path.")));
             return;
         }
 
@@ -125,6 +125,6 @@ internal class DBusPathHandler : IDBusPathHandler
         var str = sw.ToString();
         var ret = message.CreateReply();
         ret.GetBodyWriter().WriteString(str);
-        connection.SendMessage(ret);
+        connection.QueueMessage(ret);
     }
 }

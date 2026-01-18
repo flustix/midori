@@ -144,7 +144,6 @@ public class DBusMessage
 
         bw.PadTo(8);
         bw.Write(Body);
-        File.WriteAllBytes("write.bin", Body);
 
         var buffer = ms.ToArray();
         stream.Write(buffer);

@@ -29,7 +29,37 @@ public interface IDBusValue
     }
 
     // TODO: this needs to be improved to handle array types and such
-    public static IDBusValue GetForSignature(string sig) => (Activator.CreateInstance(signature_mapping[sig]) as IDBusValue)!;
+    public static IDBusValue GetForSignature(string sig)
+    {
+        // Logger.Log($"getting for signature {sig}");
+
+        Type type;
+
+        if (sig.StartsWith("a{"))
+        {
+            var substr = sig[2..^1];
+            var first = substr[0];
+            var rest = substr[1..];
+            var keyChild = GetForSignature(first.ToString());
+            var valChild = GetForSignature(rest);
+            var childType = keyChild.Value.GetType();
+            var valueType = valChild is DBusVariantValue ? typeof(DBusVariantValue) : valChild.Value.GetType();
+            type = typeof(DBusDictionaryValue<,>).MakeGenericType(childType, valueType);
+        }
+        else if (sig.StartsWith('a'))
+        {
+            var substr = sig[1..];
+            var child = GetForSignature(substr);
+            var subtype = child.Value.GetType();
+            type = typeof(DBusArray<>).MakeGenericType(subtype);
+        }
+        else
+        {
+            type = signature_mapping[sig];
+        }
+
+        return (Activator.CreateInstance(type) as IDBusValue)!;
+    }
 
     public static IDBusValue GetForType(Type type)
     {
@@ -60,12 +90,27 @@ public interface IDBusValue
         return dval;
     }
 
-    internal static T ReadStructPart<T>(Stream stream)
+    internal static T ReadStructPart<T>(Stream stream, bool align = true)
     {
         var dval = GetForType(typeof(T));
-        stream.AlignRead((uint)stream.Position, dval.GetDBusAlignment());
+        if (align) stream.AlignRead((uint)stream.Position, IsStruct(dval) ? 4 : dval.GetDBusAlignment());
         dval.Read(stream);
+
+        if (typeof(T) == typeof(DBusVariantValue))
+            return (T)dval;
+
         return (T)dval.Value;
+    }
+
+    internal static bool IsStruct(IDBusValue val)
+    {
+        var type = val.GetType();
+        if (!type.IsGenericType) return false;
+
+        var gen = type.GetGenericTypeDefinition();
+        return gen == typeof(DBusDictionaryValue<,>)
+               || gen == typeof(DBusStructValue<,>)
+               || gen == typeof(DBusStructValue<,,>);
     }
 }
 

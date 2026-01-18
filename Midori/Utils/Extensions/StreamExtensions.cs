@@ -71,6 +71,12 @@ public static class StreamExtensions
         return bigEndian ? BinaryPrimitives.ReadUInt64BigEndian(bytes) : BitConverter.ToUInt64(bytes, 0);
     }
 
+    public static double ReadDouble(this Stream stream, bool bigEndian = false)
+    {
+        var bytes = stream.ReadBytes(8);
+        return bigEndian ? BinaryPrimitives.ReadDoubleBigEndian(bytes) : BitConverter.ToDouble(bytes, 0);
+    }
+
     public static string ReadStringNullByte(this Stream stream, Encoding? enc = null)
     {
         enc ??= Encoding.UTF8;
@@ -85,6 +91,7 @@ public static class StreamExtensions
     {
         enc ??= Encoding.UTF8;
 
+        var position = stream.Position;
         var len = stream.ReadUInt32();
         var buffer = stream.ReadBytes(len);
         stream.ReadByte();

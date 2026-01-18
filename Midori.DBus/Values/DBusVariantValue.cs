@@ -32,7 +32,7 @@ public class DBusVariantValue : IDBusValue<IDBusValue>
         Signature.Read(stream);
 
         Value = IDBusValue.GetForSignature(Signature.Value);
-        stream.AlignRead((uint)stream.Position, Value.GetDBusAlignment());
+        stream.AlignRead((uint)stream.Position, IDBusValue.IsStruct(Value) ? 4 : Value.GetDBusAlignment());
         Value.Read(stream);
     }
 

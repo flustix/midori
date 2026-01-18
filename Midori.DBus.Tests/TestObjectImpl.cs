@@ -25,6 +25,31 @@ public class TestObjectImpl : BaseConnectionTest
         Logger.Log($"{res}");
     }
 
+    [Test]
+    public async Task TestWatch()
+    {
+        var player = Connection.CreateProxy<IMediaPlayer>(":1.97053", "/org/mpris/MediaPlayer2");
+
+        player.StartWatching<string>("PlaybackStatus", t => Logger.Log($"Playback status changed to {t}."));
+        player.StartWatching<Dictionary<string, DBusVariantValue>>("Metadata", t =>
+        {
+            Logger.Log($"metadata changed {t.Count}");
+
+            foreach (var (key, value) in t)
+            {
+                Logger.Log($"  {key} -> {value.Value.Value}");
+            }
+        });
+
+        var position = player.GetPropertyValue<long>("Position");
+        Logger.Log($"pos is {TimeSpan.FromMilliseconds(position / 1000f)}");
+
+        await player.PlayPause();
+        await Task.Delay(500);
+        await player.PlayPause();
+        await Task.Delay(-1);
+    }
+
     [DBusInterface("org.freedesktop.DBus")]
     public interface IBaseType
     {
@@ -35,6 +60,22 @@ public class TestObjectImpl : BaseConnectionTest
     public interface IFileChooser
     {
         Task<DBusObjectPath> OpenFile(string parent, string title, Dictionary<string, DBusVariantValue> options);
+    }
+
+    [DBusInterface("org.mpris.MediaPlayer2.Player")]
+    public interface IMediaPlayer : IDBusWatchable
+    {
+        // string PlaybackStatus { get; }
+
+        Task Next();
+        Task OpenUri(string uri);
+        Task Pause();
+        Task Play();
+        Task PlayPause();
+        Task Previous();
+
+        // Task Seek(long position);
+        Task Stop();
     }
 
     /// <summary>
@@ -57,6 +98,16 @@ public class TestObjectImpl : BaseConnectionTest
 
             var result = connection.CallFromProxy(this, "", list).Result;
             return Task.FromResult(connection.GetReturnForProxy<uint>(this, "", result));
+        }
+
+        public Task NoReturn(string name, uint flags)
+        {
+            var list = new List<object>();
+            list.Add(name);
+            list.Add(flags);
+
+            var result = connection.CallFromProxy(this, "", list).Result;
+            return Task.CompletedTask;
         }
     }
 }

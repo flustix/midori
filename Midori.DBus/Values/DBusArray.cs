@@ -11,9 +11,10 @@ public class DBusArray<T> : IDBusValue<List<T>>, IDynamicSignature
     public void Read(Stream stream)
     {
         Value = [];
+        var current = stream.Position;
         var len = stream.ReadUInt32();
 
-        while (stream.Position < len)
+        while (stream.Position < current + len)
         {
             var t = IDBusValue.GetForType(typeof(T));
             stream.AlignRead((uint)stream.Position, t.GetDBusAlignment());

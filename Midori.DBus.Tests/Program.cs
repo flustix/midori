@@ -4,9 +4,9 @@ internal static class Program
 {
     internal static async Task Main(string[] args)
     {
-        var test = new TestSignals();
+        var test = new TestObjectImpl();
         await test.Setup();
-        await test.TestWatchNameChange();
+        await test.TestWatch();
         await test.TearDown();
     }
 }
