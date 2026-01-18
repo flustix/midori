@@ -6,11 +6,11 @@ using Midori.DBus.Values;
 
 namespace Midori.DBus.Impl;
 
-internal class DBusObject : IDBusWatchable, IDisposable
+internal class DBusObject : IDBusWatchable
 {
+    public string Path { get; set; } = null!;
     internal DBusConnection Connection { get; set; } = null!;
     internal string Destination { get; set; } = null!;
-    internal string Path { get; set; } = null!;
     internal string Interface { get; set; } = null!;
 
     private IDisposable? watchPropertiesChange;
@@ -24,7 +24,7 @@ internal class DBusObject : IDBusWatchable, IDisposable
             Path,
             "org.freedesktop.DBus.Properties",
             "PropertiesChanged"
-        ));
+        )).Result;
     }
 
     private void propertiesChanged((string, Dictionary<string, DBusVariantValue>, List<string>) ev)
@@ -45,6 +45,14 @@ internal class DBusObject : IDBusWatchable, IDisposable
 
     public T GetPropertyValue<T>(string member) => Connection.GetProperty<T>(Destination, Path, Interface, member).Result;
     public void StartWatching<T>(string member, Action<T> callback) => callbacks.Add((member, v => callback.Invoke((T)v.Value.Value)));
+
+    public IDisposable ListenToSignal<T>(string member, Action<T> callback) => Connection.AddMatch(callback, new DBusMatchRule(
+        DBusMatchType.Signal,
+        Destination,
+        Path,
+        Interface,
+        member
+    )).Result;
 
     public void Dispose()
     {

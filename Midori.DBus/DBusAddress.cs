@@ -3,6 +3,7 @@ namespace Midori.DBus;
 public class DBusAddress
 {
     private static DBusAddress? session;
+    private static DBusAddress? system;
 
     public static DBusAddress Session
     {
@@ -14,6 +15,19 @@ public class DBusAddress
             var env = Environment.GetEnvironmentVariable("DBUS_SESSION_BUS_ADDRESS") ?? throw new InvalidOperationException("DBus address not found in environment variables.");
             session = parseString(env);
             return session;
+        }
+    }
+
+    public static DBusAddress System
+    {
+        get
+        {
+            if (system != null)
+                return system;
+
+            var env = Environment.GetEnvironmentVariable("DBUS_SYSTEM_BUS_ADDRESS") ?? "unix:path=/var/run/dbus/system_bus_socket";
+            system = parseString(env);
+            return system;
         }
     }
 
