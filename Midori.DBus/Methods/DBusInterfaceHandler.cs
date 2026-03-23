@@ -39,6 +39,7 @@ internal class DBusInterfaceHandler : IDBusInterfaceHandler
 
         if (!methods.TryGetValue(member, out var method))
         {
+            Logger.Log($"Tried to call {member} on {name}.", LoggingTarget.General, LogLevel.Warning);
             connection.QueueMessage(message.CreateError(new DBusException("Member does not exist.")));
             return;
         }
@@ -89,7 +90,12 @@ internal class DBusInterfaceHandler : IDBusInterfaceHandler
 
                     var dval = IDBusValue.GetForType(rty);
                     dval.Value = result!;
-                    ret.GetBodyWriter().Write(dval);
+
+                    var retBody = ret.GetBodyWriter();
+                    retBody.Write(dval);
+
+                    if (IDBusValue.IsStruct(dval, false))
+                        retBody.Signature = retBody.Signature[1..^1];
                 }
             }
 
@@ -122,7 +128,7 @@ internal class DBusInterfaceHandler : IDBusInterfaceHandler
     {
         foreach (var (key, prop) in properties)
         {
-            var dval = IDBusValue.GetForType(prop.PropertyType);
+            var sig = IDBusValue.GetForType(prop.PropertyType).GetDBusSignature();
             string access;
 
             if (prop is { CanRead: true, CanWrite: true })
@@ -132,7 +138,7 @@ internal class DBusInterfaceHandler : IDBusInterfaceHandler
             else
                 throw new Exception($"Property {target.GetType().FullName}.{prop.Name} needs to be readable!");
 
-            sw.WriteLine($"    <property type=\"{dval.GetDBusSignature()}\" name=\"{key}\" access=\"{access}\" />");
+            sw.WriteLine($"    <property type=\"{sig}\" name=\"{key}\" access=\"{access}\" />");
         }
 
         foreach (var (key, method) in methods)
@@ -167,8 +173,8 @@ internal class DBusInterfaceHandler : IDBusInterfaceHandler
                         ret = ret.GenericTypeArguments.First();
                 }
 
-                var dval = IDBusValue.GetForType(ret);
-                sw.WriteLine($"      <arg type=\"{dval.GetDBusSignature()}\" name=\"{ret.Name}\" direction=\"out\"/>");
+                var sig = IDBusValue.GetForType(ret).GetDBusSignature();
+                sw.WriteLine($"      <arg type=\"{sig}\" name=\"{ret.Name}\" direction=\"out\"/>");
             }
 
             sw.WriteLine("    </method>");

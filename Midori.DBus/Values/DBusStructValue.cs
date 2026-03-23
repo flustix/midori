@@ -80,3 +80,48 @@ public class DBusStructValue<T1, T2, T3> : IDBusValue<(T1, T2, T3)>, IDynamicSig
                + ")";
     }
 }
+
+[DBusSignature("(", 8, typeof(ValueTuple<,,,>))]
+public class DBusStructValue<T1, T2, T3, T4> : IDBusValue<(T1, T2, T3, T4)>, IDynamicSignature
+{
+    public (T1, T2, T3, T4) Value { get; set; } = default;
+
+    public void Read(Stream stream)
+    {
+        Value = (
+            IDBusValue.ReadStructPart<T1>(stream),
+            IDBusValue.ReadStructPart<T2>(stream),
+            IDBusValue.ReadStructPart<T3>(stream),
+            IDBusValue.ReadStructPart<T4>(stream)
+        );
+    }
+
+    public void Write(BinaryWriter writer)
+    {
+        var v1 = IDBusValue.GetForType(typeof(T1), Value.Item1!);
+        writer.PadTo(v1.GetDBusAlignment());
+        v1.Write(writer);
+
+        var v2 = IDBusValue.GetForType(typeof(T2), Value.Item2!);
+        writer.PadTo(v2.GetDBusAlignment());
+        v2.Write(writer);
+
+        var v3 = IDBusValue.GetForType(typeof(T3), Value.Item3!);
+        writer.PadTo(v3.GetDBusAlignment());
+        v3.Write(writer);
+
+        var v4 = IDBusValue.GetForType(typeof(T3), Value.Item3!);
+        writer.PadTo(v4.GetDBusAlignment());
+        v4.Write(writer);
+    }
+
+    public string GetSignature()
+    {
+        return "("
+               + IDBusValue.GetForType(typeof(T1)).GetDBusSignature()
+               + IDBusValue.GetForType(typeof(T2)).GetDBusSignature()
+               + IDBusValue.GetForType(typeof(T3)).GetDBusSignature()
+               + IDBusValue.GetForType(typeof(T4)).GetDBusSignature()
+               + ")";
+    }
+}

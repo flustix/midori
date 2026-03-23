@@ -1,7 +1,9 @@
-﻿using Midori.API.Components;
+﻿using System.Net.Http;
+using System.Threading.Tasks;
+using Midori.API.Components;
 using Midori.Networking;
 
-namespace Midori.Tests.API;
+namespace Midori.Tests.Preset.API;
 
 public class ParameterRoute : IAPIRoute<APIInteraction>
 {

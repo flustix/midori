@@ -2,7 +2,6 @@ using System.Reflection;
 using Midori.DBus.Attributes;
 using Midori.DBus.Exceptions;
 using Midori.DBus.Values;
-using Midori.Logging;
 
 namespace Midori.DBus.Methods;
 
@@ -89,7 +88,7 @@ internal class DBusPathHandler : IDBusPathHandler
             }
 
             default:
-                DBusConnection.LOGGER.Add($"{intf} isn't handled by library, passing on.", LogLevel.Debug);
+                // DBusConnection.LOGGER.Add($"{intf} isn't handled by library, passing on.", LogLevel.Debug);
                 break;
         }
 

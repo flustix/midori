@@ -439,16 +439,20 @@ public class DBusConnection
 
     private List<MatchRuleEntry> matchRules { get; } = new();
 
-    public async Task<InvokeOnDisposal> AddMatch<T>(Action<T> act, DBusMatchRule rule)
+    public Task<InvokeOnDisposal> AddMatch<T>(Action<T> act, DBusMatchRule rule) => AddMatchBase(m =>
+    {
+        var body = m.GetBodyReader();
+        var dval = IDBusValue.GetForType(typeof(T));
+        body.Read(dval);
+        act.Invoke((T)dval.Value);
+    }, rule);
+
+    public Task<InvokeOnDisposal> AddMatch(Action act, DBusMatchRule rule) => AddMatchBase(_ => act(), rule);
+
+    public async Task<InvokeOnDisposal> AddMatchBase(Action<DBusMessage> act, DBusMatchRule rule)
     {
         var built = rule.Build();
-        var listItem = new MatchRuleEntry(rule, m =>
-        {
-            var body = m.GetBodyReader();
-            var dval = IDBusValue.GetForType(typeof(T));
-            body.Read(dval);
-            act.Invoke((T)dval.Value);
-        });
+        var listItem = new MatchRuleEntry(rule, act);
 
         lock (matchRules) matchRules.Add(listItem);
         await CallDBusMethod("AddMatch", w => w.WriteString(built));

@@ -1,6 +1,9 @@
-﻿using Midori.API.Components;
+﻿using System;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Midori.API.Components;
 
-namespace Midori.Tests.API;
+namespace Midori.Tests.Preset.API;
 
 public class ExceptionRoute : IAPIRoute<APIInteraction>
 {

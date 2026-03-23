@@ -6,5 +6,7 @@ public interface IDBusWatchable : IDisposable
 
     T GetPropertyValue<T>(string member);
     void StartWatching<T>(string member, Action<T> callback);
+
+    IDisposable ListenToSignal(string member, Action callback);
     IDisposable ListenToSignal<T>(string member, Action<T> callback);
 }

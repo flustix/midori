@@ -125,9 +125,10 @@ public class IntrospectGenerator : IIncrementalGenerator
                 };
 
                 if (args.Length == 0)
-                    continue; // TODO: addmatch doesnt support 0 types
+                    sb.AppendLine($"    public static System.IDisposable Listen{n}(this I{name} o, System.Action act) => o.ListenToSignal(\"{n}\", act);");
+                else
 
-                sb.AppendLine($"    public static System.IDisposable Listen{n}(this I{name} o, System.Action{t} act) => o.ListenToSignal(\"{n}\", act);");
+                    sb.AppendLine($"    public static System.IDisposable Listen{n}(this I{name} o, System.Action{t} act) => o.ListenToSignal(\"{n}\", act);");
             }
 
             if (signals.Any())

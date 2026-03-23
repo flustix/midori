@@ -46,6 +46,14 @@ internal class DBusObject : IDBusWatchable
     public T GetPropertyValue<T>(string member) => Connection.GetProperty<T>(Destination, Path, Interface, member).Result;
     public void StartWatching<T>(string member, Action<T> callback) => callbacks.Add((member, v => callback.Invoke((T)v.Value.Value)));
 
+    public IDisposable ListenToSignal(string member, Action callback) => Connection.AddMatch(callback, new DBusMatchRule(
+        DBusMatchType.Signal,
+        Destination,
+        Path,
+        Interface,
+        member
+    )).Result;
+
     public IDisposable ListenToSignal<T>(string member, Action<T> callback) => Connection.AddMatch(callback, new DBusMatchRule(
         DBusMatchType.Signal,
         Destination,

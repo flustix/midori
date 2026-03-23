@@ -102,15 +102,16 @@ public interface IDBusValue
         return (T)dval.Value;
     }
 
-    internal static bool IsStruct(IDBusValue val)
+    internal static bool IsStruct(IDBusValue val, bool includeDict = true)
     {
         var type = val.GetType();
         if (!type.IsGenericType) return false;
 
         var gen = type.GetGenericTypeDefinition();
-        return gen == typeof(DBusDictionaryValue<,>)
+        return (includeDict && gen == typeof(DBusDictionaryValue<,>))
                || gen == typeof(DBusStructValue<,>)
-               || gen == typeof(DBusStructValue<,,>);
+               || gen == typeof(DBusStructValue<,,>)
+               || gen == typeof(DBusStructValue<,,,>);
     }
 }
 
