@@ -2,6 +2,7 @@
 using System.Net.Sockets;
 using System.Reflection;
 using Midori.API;
+using Midori.API.Attributes;
 using Midori.API.Components;
 using Midori.Logging;
 
@@ -9,12 +10,14 @@ namespace Midori.Networking;
 
 public class HttpServer
 {
-    private TcpListener listener = null!;
+    private TcpListener? listener;
     private Dictionary<string, PathMethods> paths { get; } = new();
     private Dictionary<Type, HttpConnectionManager> managers { get; } = new();
 
     public IHttpModule? NotFoundModule { get; set; }
     public IHttpModule? MethodNotAllowedModule { get; set; }
+
+    private bool running = true;
 
     public void Start(IPAddress address, int port)
     {
@@ -60,6 +63,59 @@ public class HttpServer
         }
     }
 
+    public void RegisterControllerFromAssembly<I>(Assembly assembly)
+        where I : APIInteraction, new()
+    {
+        var types = assembly.GetTypes().Where(x => x.GetCustomAttribute<ControllerAttribute>() != null)
+                            .Where(x => !x.IsAbstract).ToList();
+
+        foreach (var type in types)
+        {
+            var method = typeof(HttpServer)
+                         .GetMethod(nameof(RegisterController), BindingFlags.Instance | BindingFlags.Public)!
+                         .MakeGenericMethod(typeof(I), type);
+
+            method.Invoke(this, new object?[] { });
+        }
+    }
+
+    public void RegisterController<I, C>()
+        where I : APIInteraction, new()
+        where C : new()
+    {
+        var type = typeof(C);
+        var prefix = string.Empty;
+
+        var ctrlAttr = type.GetCustomAttribute<ControllerAttribute>();
+        if (ctrlAttr != null) prefix = ctrlAttr.Prefix;
+
+        if (string.IsNullOrWhiteSpace(prefix))
+        {
+            Logger.Log($"{type.FullName} is missing a {nameof(ControllerAttribute)}. Prefix is defaulting to /.");
+            prefix = "/";
+        }
+        else
+            assureValidPrefix(prefix);
+
+        var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                          .Where(x => x.GetCustomAttribute<HttpRouteAttribute>() != null)
+                          .ToList();
+
+        foreach (var method in methods)
+        {
+            var routeAttr = method.GetCustomAttribute<HttpRouteAttribute>()!;
+            var path = Path.Combine(prefix, routeAttr.Path).Replace("\\", "/");
+            Logger.Log($"{type.FullName}.{method.Name}: {path}");
+
+            var gen = typeof(ControllerRouteModule<,>).MakeGenericType(typeof(I), type);
+            var call = typeof(HttpServer)
+                       .GetMethod(nameof(MapModule), BindingFlags.Instance | BindingFlags.Public)!
+                       .MakeGenericMethod(gen);
+
+            call.Invoke(this, new object?[] { path, routeAttr.Method.GetSystemNet(), (IControllerRouteModule mod) => { mod.Method = method; } });
+        }
+    }
+
     public HttpConnectionManager<T> MapModule<T>(string prefix, HttpMethod? method = null, Action<T>? config = null)
         where T : IHttpModule, new()
     {
@@ -77,6 +133,12 @@ public class HttpServer
         return (HttpConnectionManager<T>)managers[typeof(T)];
     }
 
+    public void Close()
+    {
+        listener?.Dispose();
+        running = false;
+    }
+
     private static void assureValidPrefix(string prefix, string type = "Prefix")
     {
         if (!prefix.StartsWith('/'))
@@ -87,7 +149,7 @@ public class HttpServer
 
     private void receiveLoop()
     {
-        while (true)
+        while (running && listener != null)
         {
             TcpClient? client = null;
 
