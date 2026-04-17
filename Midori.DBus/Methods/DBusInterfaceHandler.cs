@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.Extensions.Logging;
 using Midori.DBus.Attributes;
 using Midori.DBus.Exceptions;
 using Midori.DBus.Values;

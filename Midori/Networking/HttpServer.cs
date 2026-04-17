@@ -1,14 +1,13 @@
-﻿using System.Net;
-using System.Net.Sockets;
-using System.Reflection;
-using Midori.API;
-using Midori.API.Attributes;
-using Midori.API.Components;
+﻿using System.Net.Sockets;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Midori.Logging;
+using Midori.Networking.Handlers;
 
 namespace Midori.Networking;
 
-public class HttpServer
+public class HttpServer : IHostedService
 {
     private TcpListener? listener;
     private Dictionary<string, PathMethods> paths { get; } = new();
@@ -19,101 +18,45 @@ public class HttpServer
 
     private bool running = true;
 
-    public void Start(IPAddress address, int port)
-    {
-        listener = new TcpListener(address, port);
-        listener.Start();
+    private readonly ILogger logger;
+    private readonly HttpRouter router;
+    private readonly HttpConfiguration configuration;
 
-        var thread = new Thread(receiveLoop) { IsBackground = true };
-        thread.Start();
+    public HttpServer(HttpRouter router, ILoggerFactory loggerFactory, IOptions<HttpConfiguration> config)
+    {
+        this.router = router;
+        logger = loggerFactory.CreateLogger(MidoriLoggerProvider.NETWORK);
+        configuration = config.Value;
     }
 
-    public void RegisterAPI<I, R>(Assembly assembly)
-        where I : APIInteraction, new()
-        where R : IAPIRoute<I>
+    public Task StartAsync(CancellationToken cancellationToken)
     {
-        var types = assembly.GetTypes()
-                            .Where(t => t.GetInterfaces().Contains(typeof(R)))
-                            .Where(t => t is { IsClass: true, IsAbstract: false }).ToList();
-
-        if (types.Count == 0)
+        try
         {
-            Logger.Log("Could not find any matching routes in assembly.", LoggingTarget.Network);
-            return;
+            listener = new TcpListener(configuration.Address, configuration.Port);
+            listener.Start();
+
+            var thread = new Thread(receiveLoop) { IsBackground = true };
+            thread.Start();
+
+            logger.LogInformation($"Started listening on {configuration.Address}:{configuration.Port}.");
+
+            return Task.CompletedTask;
         }
-
-        var routes = types.Select(x =>
+        catch (Exception exception)
         {
-            var route = (R)Activator.CreateInstance(x)!;
-            assureValidPrefix(route.RoutePath, $"Path of {route.GetType().Name}");
-            return route;
-        }).ToList();
-
-        routes.Sort((a, b) => string.Compare(a.RoutePath, b.RoutePath, StringComparison.Ordinal));
-
-        foreach (var route in routes)
-        {
-            var type = route.GetType();
-            var gen = typeof(APIRouteModule<,>).MakeGenericType(typeof(I), type);
-            var method = typeof(HttpServer)
-                         .GetMethod(nameof(MapModule), BindingFlags.Instance | BindingFlags.Public)!
-                         .MakeGenericMethod(gen);
-
-            method!.Invoke(this, new object?[] { $"{route.RoutePath}", route.Method, null });
+            return Task.FromException(exception);
         }
     }
 
-    public void RegisterControllerFromAssembly<I>(Assembly assembly)
-        where I : APIInteraction, new()
+    public Task StopAsync(CancellationToken cancellationToken)
     {
-        var types = assembly.GetTypes().Where(x => x.GetCustomAttribute<ControllerAttribute>() != null)
-                            .Where(x => !x.IsAbstract).ToList();
+        listener?.Dispose();
+        running = false;
 
-        foreach (var type in types)
-        {
-            var method = typeof(HttpServer)
-                         .GetMethod(nameof(RegisterController), BindingFlags.Instance | BindingFlags.Public)!
-                         .MakeGenericMethod(typeof(I), type);
+        logger.LogInformation("Closed HTTP server.");
 
-            method.Invoke(this, new object?[] { });
-        }
-    }
-
-    public void RegisterController<I, C>()
-        where I : APIInteraction, new()
-        where C : new()
-    {
-        var type = typeof(C);
-        var prefix = string.Empty;
-
-        var ctrlAttr = type.GetCustomAttribute<ControllerAttribute>();
-        if (ctrlAttr != null) prefix = ctrlAttr.Prefix;
-
-        if (string.IsNullOrWhiteSpace(prefix))
-        {
-            Logger.Log($"{type.FullName} is missing a {nameof(ControllerAttribute)}. Prefix is defaulting to /.");
-            prefix = "/";
-        }
-        else
-            assureValidPrefix(prefix);
-
-        var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance)
-                          .Where(x => x.GetCustomAttribute<HttpRouteAttribute>() != null)
-                          .ToList();
-
-        foreach (var method in methods)
-        {
-            var routeAttr = method.GetCustomAttribute<HttpRouteAttribute>()!;
-            var path = Path.Combine(prefix, routeAttr.Path).Replace("\\", "/");
-            Logger.Log($"{type.FullName}.{method.Name}: {path}");
-
-            var gen = typeof(ControllerRouteModule<,>).MakeGenericType(typeof(I), type);
-            var call = typeof(HttpServer)
-                       .GetMethod(nameof(MapModule), BindingFlags.Instance | BindingFlags.Public)!
-                       .MakeGenericMethod(gen);
-
-            call.Invoke(this, new object?[] { path, routeAttr.Method.GetSystemNet(), (IControllerRouteModule mod) => { mod.Method = method; } });
-        }
+        return Task.CompletedTask;
     }
 
     public HttpConnectionManager<T> MapModule<T>(string prefix, HttpMethod? method = null, Action<T>? config = null)
@@ -131,12 +74,6 @@ public class HttpServer
             managers.Add(typeof(T), new HttpConnectionManager<T>());
 
         return (HttpConnectionManager<T>)managers[typeof(T)];
-    }
-
-    public void Close()
-    {
-        listener?.Dispose();
-        running = false;
     }
 
     private static void assureValidPrefix(string prefix, string type = "Prefix")
@@ -181,28 +118,7 @@ public class HttpServer
 
     private void processClient(HttpServerContext context)
     {
-        var split = context.Request.Target.Split("?").First().Split("/", StringSplitOptions.RemoveEmptyEntries);
-        var sorted = paths.OrderByDescending(a => a.Key.Length);
-
-        var (key, methods) = sorted.FirstOrDefault(m =>
-        {
-            var ksp = m.Key.Split("/", StringSplitOptions.RemoveEmptyEntries);
-            if (split.Length != ksp.Length) return false;
-
-            for (var i = 0; i < split.Length; i++)
-            {
-                var k = ksp[i];
-                var rq = split[i];
-
-                if (k.StartsWith(':'))
-                    continue;
-
-                if (!k.Equals(rq, StringComparison.CurrentCultureIgnoreCase))
-                    return false;
-            }
-
-            return true;
-        });
+        var path = context.Request.Target.Split("?").First();
 
         HttpMethod? method = context.Request.Method switch
         {
@@ -215,10 +131,41 @@ public class HttpServer
             "TRACE" => HttpMethod.Trace,
             "PATCH" => HttpMethod.Patch,
             "CONNECT" => HttpMethod.Connect,
-            _ => null
+            _ => HttpMethod.Get
         };
 
-        if (!string.IsNullOrWhiteSpace(key))
+        IHttpModule? mod;
+
+        var err = new DefaultHttpErrorHandler();
+
+        try
+        {
+            mod = router.GetModule(path, method);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, $"Failed to create module for '{path}'!");
+            err.Handle(context, HttpStatusCode.InternalServerError, ex);
+            return;
+        }
+
+        if (mod is null)
+        {
+            err.Handle(context, HttpStatusCode.NotFound, null);
+            return;
+        }
+
+        try
+        {
+            mod.Process(context).Wait();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, $"Failed to handle module '{mod}' for '{path}'!");
+            err.Handle(context, HttpStatusCode.InternalServerError, ex);
+        }
+
+        /*if (!string.IsNullOrWhiteSpace(key))
         {
             HttpConnectionManager? manager = null;
             IHttpModule? module = null;
@@ -254,10 +201,10 @@ public class HttpServer
         else
         {
             if (NotFoundModule is null)
-                Logger.Log($"No matching module found for {context.Request.Target}!", LoggingTarget.Network, LogLevel.Warning);
+                Logger.Log($"No matching module found for {context.Request.Target}!", LoggingTarget.Network, LogLevel.Information);
             else
                 NotFoundModule.Process(context);
-        }
+        }*/
     }
 
     private class PathMethods

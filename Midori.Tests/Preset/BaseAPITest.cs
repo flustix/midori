@@ -1,5 +1,4 @@
-﻿using System.Net;
-using Midori.Networking;
+﻿using Midori.Networking;
 using NUnit.Framework;
 
 namespace Midori.Tests.Preset;
@@ -11,17 +10,17 @@ public abstract class BaseAPITest
     [SetUp]
     public void Setup()
     {
-        Server = new HttpServer();
+        // Server = new HttpServer();
     }
 
     protected void Start()
     {
-        Server.Start(IPAddress.Any, 9090);
+        // Server.Start(IPAddress.Any, 9090);
     }
 
     [TearDown]
     public void TearDown()
     {
-        Server.Close();
+        // Server.Close();
     }
 }

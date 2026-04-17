@@ -1,0 +1,187 @@
+using System.Reflection;
+using Microsoft.Extensions.Logging;
+using Midori.API;
+using Midori.API.Attributes;
+using Midori.API.Components;
+using Midori.Logging;
+
+namespace Midori.Networking;
+
+public partial class HttpRouter
+{
+    private readonly ILogger logger;
+    private readonly IServiceProvider services;
+
+    private Dictionary<string, PathMethods> paths { get; } = new();
+
+    public HttpRouter(ILoggerFactory loggerFactory, IServiceProvider services)
+    {
+        logger = loggerFactory.CreateLogger(MidoriLoggerProvider.NETWORK);
+        this.services = services;
+    }
+
+    #region Controllers
+
+    public void RegisterControllersFromAssembly(Assembly assembly)
+    {
+        var types = assembly.GetTypes().Where(x => x.GetCustomAttribute<ControllerAttribute>() != null)
+                            .Where(x => !x.IsAbstract).ToList();
+
+        foreach (var type in types)
+        {
+            var method = typeof(HttpServer)
+                         .GetMethod(nameof(RegisterController), BindingFlags.Instance | BindingFlags.Public)!
+                         .MakeGenericMethod(type);
+
+            method.Invoke(this, new object?[] { });
+        }
+    }
+
+    public void RegisterController<C>()
+        where C : new()
+    {
+        var type = typeof(C);
+        var prefix = string.Empty;
+
+        var ctrlAttr = type.GetCustomAttribute<ControllerAttribute>();
+        if (ctrlAttr != null) prefix = ctrlAttr.Prefix;
+
+        if (string.IsNullOrWhiteSpace(prefix))
+        {
+            logger.LogWarning($"{type.FullName} is missing a {nameof(ControllerAttribute)}. Prefix is defaulting to /.");
+            prefix = "/";
+        }
+        else
+            assureValidPrefix(prefix);
+
+        var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                          .Where(x => x.GetCustomAttribute<HttpRouteAttribute>() != null)
+                          .ToList();
+
+        if (methods.Count == 0)
+            return;
+
+        var modType = typeof(TransientMethodModule<>)
+            .MakeGenericType(typeof(ControllerRouteModule<>).MakeGenericType(type));
+
+        var mod = (Activator.CreateInstance(modType) as IMethodModule)!;
+
+        foreach (var method in methods)
+        {
+            var routeAttr = method.GetCustomAttribute<HttpRouteAttribute>()!;
+            var path = Path.Combine(prefix, routeAttr.Path).Replace("\\", "/");
+            Logger.Log($"{type.FullName}.{method.Name}: {path}");
+
+            addModule(path, routeAttr.Method.GetSystemNet(), mod);
+        }
+    }
+
+    #endregion
+
+    #region Legacy
+
+    [Obsolete]
+    public void RegisterAPI<I, R>(Assembly assembly)
+        where I : APIInteraction, new()
+        where R : IAPIRoute<I>
+    {
+        var types = assembly.GetTypes()
+                            .Where(t => t.GetInterfaces().Contains(typeof(R)))
+                            .Where(t => t is { IsClass: true, IsAbstract: false }).ToList();
+
+        if (types.Count == 0)
+        {
+            logger.LogWarning($"Could not find any matching routes in assembly '{assembly.FullName}'.");
+            return;
+        }
+
+        var routes = types.Select(x =>
+        {
+            var route = (R)Activator.CreateInstance(x)!;
+            assureValidPrefix(route.RoutePath, $"Path of {route.GetType().Name}");
+            return route;
+        }).ToList();
+
+        routes.Sort((a, b) => string.Compare(a.RoutePath, b.RoutePath, StringComparison.Ordinal));
+
+        foreach (var route in routes)
+        {
+            var type = route.GetType();
+            var gen = typeof(APIRouteModule<,>).MakeGenericType(typeof(I), type);
+            var method = GetType()
+                         .GetMethod(nameof(MapModule), BindingFlags.Instance | BindingFlags.Public)!
+                         .MakeGenericMethod(gen);
+
+            method!.Invoke(this, new object?[] { $"{route.RoutePath}", route.Method, null });
+        }
+    }
+
+    #endregion
+
+    public void MapModule<T>(string prefix, HttpMethod? method = null, Action<T>? config = null)
+        where T : class, IHttpModule, new()
+    {
+        var mod = new TransientMethodModule<T> { Configure = config };
+        addModule(prefix, method ?? HttpMethod.Get, mod);
+    }
+
+    public IHttpModule? GetModule(string path, HttpMethod method)
+    {
+        var split = path.Split("/", StringSplitOptions.RemoveEmptyEntries);
+        var sorted = paths.OrderByDescending(a => a.Key.Length);
+
+        var (_, methods) = sorted.FirstOrDefault(m =>
+        {
+            var ksp = m.Key.Split("/", StringSplitOptions.RemoveEmptyEntries);
+            if (split.Length != ksp.Length) return false;
+
+            for (var i = 0; i < split.Length; i++)
+            {
+                var k = ksp[i];
+                var rq = split[i];
+
+                if (k.StartsWith(':'))
+                    continue;
+
+                if (!k.Equals(rq, StringComparison.CurrentCultureIgnoreCase))
+                    return false;
+            }
+
+            return true;
+        });
+
+        var mod = methods?.GetForMethod(method);
+        return mod?.CreateHttpModule(services);
+    }
+
+    private void addModule(string path, HttpMethod method, IMethodModule mod)
+    {
+        assureValidPrefix(path);
+
+        if (!paths.ContainsKey(path))
+            paths[path] = new PathMethods();
+
+        paths[path].AddMethod(method, mod);
+    }
+
+    private static void assureValidPrefix(string prefix, string type = "Prefix")
+    {
+        if (!prefix.StartsWith('/'))
+            throw new ArgumentException($"{type} has to start with /.");
+        if (prefix.Length > 1 && prefix.EndsWith('/'))
+            throw new ArgumentException($"{type} can't end with /.");
+    }
+
+    private class PathMethods
+    {
+        private readonly Dictionary<HttpMethod, IMethodModule> methods = new();
+
+        public void AddMethod(HttpMethod method, IMethodModule mod) => methods.Add(method, mod);
+        public IMethodModule? GetForMethod(HttpMethod? method) => method is null ? null : methods.GetValueOrDefault(method);
+    }
+
+    private interface IMethodModule
+    {
+        IHttpModule CreateHttpModule(IServiceProvider services);
+    }
+}

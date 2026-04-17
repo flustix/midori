@@ -1,4 +1,5 @@
-﻿using Midori.Utils;
+﻿using Microsoft.Extensions.Logging;
+using Midori.Utils;
 
 namespace Midori.Logging;
 
@@ -6,7 +7,7 @@ namespace Midori.Logging;
 
 public partial class Logger
 {
-    public static LogLevel MinimumLevel { get; set; } = RuntimeUtils.IsDebugBuild ? LogLevel.Debug : LogLevel.Verbose;
+    public static LogLevel MinimumLevel { get; set; } = RuntimeUtils.IsDebugBuild ? LogLevel.Debug : LogLevel.Information;
     public static string TargetDirectory { get; set; } = "logs";
     public static bool SaveToFiles { get; set; } = true;
 
@@ -30,7 +31,7 @@ public partial class Logger
         error(e, description, null, name, recursive);
     }
 
-    public static void Log(string message, LoggingTarget target = LoggingTarget.General, LogLevel level = LogLevel.Verbose)
+    public static void Log(string message, LoggingTarget target = LoggingTarget.General, LogLevel level = LogLevel.Information)
     {
         log(message, target, null, level);
     }
@@ -82,14 +83,16 @@ public partial class Logger
 
     #endregion
 
-    #region Colors
+    #region Colors and Names
 
     private static ConsoleColor getColor(LogLevel? logLevel) => logLevel switch
     {
+        LogLevel.Trace => ConsoleColor.Gray,
+        LogLevel.Debug => ConsoleColor.Magenta,
+        LogLevel.Information => ConsoleColor.Cyan,
         LogLevel.Warning => ConsoleColor.Yellow,
         LogLevel.Error => ConsoleColor.Red,
-        LogLevel.Verbose => ConsoleColor.Cyan,
-        LogLevel.Debug => ConsoleColor.Magenta,
+        LogLevel.Critical => ConsoleColor.DarkRed,
         _ => ConsoleColor.White
     };
 
@@ -100,20 +103,17 @@ public partial class Logger
         _ => ConsoleColor.Blue
     };
 
-    #endregion
-}
+    private static string getDisplayName(LogLevel level) => level switch
+    {
+        LogLevel.Information => "Info",
+        _ => level.ToString()
+    };
 
-public enum LogLevel
-{
-    Debug,
-    Verbose,
-    Warning,
-    Error
+    #endregion
 }
 
 public enum LoggingTarget
 {
-    Info, // only logs in console and not in file
     General,
     Network,
     Database

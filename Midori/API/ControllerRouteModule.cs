@@ -1,39 +1,20 @@
-﻿using System.Reflection;
-using Midori.API.Components;
+﻿using Microsoft.Extensions.Logging;
 using Midori.Logging;
 using Midori.Networking;
 
 namespace Midori.API;
 
-internal class ControllerRouteModule<I, C> : IHttpModule, IControllerRouteModule
-    where I : APIInteraction, new()
-    where C : new()
+internal class ControllerRouteModule<T> : IHttpModule
+    where T : class
 {
-    public MethodInfo Method { get; set; } = null!;
+    private readonly ILogger logger;
+
+    public ControllerRouteModule(ILoggerFactory loggerFactory)
+    {
+        logger = loggerFactory.CreateLogger(MidoriLoggerProvider.NETWORK);
+    }
 
     public async Task Process(HttpServerContext ctx)
     {
-        try
-        {
-            var req = ctx.Request;
-            var interaction = new I();
-
-            if (req.Method == "OPTIONS")
-            {
-                interaction.Populate(ctx, req, new Dictionary<string, string>());
-                interaction.Response.StatusCode = HttpStatusCode.NoContent;
-                await interaction.ReplyData(Array.Empty<byte>());
-                return;
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, $"Failed to handle route {typeof(C).Name}.{Method.Name}.");
-        }
     }
-}
-
-internal interface IControllerRouteModule
-{
-    MethodInfo Method { get; set; }
 }

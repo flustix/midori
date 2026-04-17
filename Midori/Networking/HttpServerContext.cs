@@ -35,5 +35,6 @@ public class HttpServerContext : IDisposable
 
         client.Dispose();
         Stream.Dispose();
+        Request.Dispose();
     }
 }

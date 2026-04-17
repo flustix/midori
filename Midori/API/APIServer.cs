@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using Microsoft.Extensions.Logging;
 using Midori.API.Components;
 using Midori.API.Components.Interfaces;
 using Midori.Logging;

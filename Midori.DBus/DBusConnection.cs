@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Security.Authentication;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using Midori.DBus.Attributes;
 using Midori.DBus.Exceptions;
 using Midori.DBus.Impl;

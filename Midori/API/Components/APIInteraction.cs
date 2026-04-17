@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Text;
 using HttpMultipartParser;
+using Microsoft.Extensions.Logging;
 using Midori.Logging;
 using Midori.Networking;
 using HttpStatusCode = Midori.Networking.HttpStatusCode;
@@ -317,7 +318,6 @@ public class APIInteraction : IDisposable
     public void Dispose()
     {
         Context.Dispose();
-        Request.Dispose();
         Response.Dispose();
     }
 }

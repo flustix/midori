@@ -1,12 +1,13 @@
 ﻿using System.Globalization;
 using JetBrains.Annotations;
+using Microsoft.Extensions.Logging;
 using Midori.Utils;
 
 namespace Midori.Logging;
 
 #nullable disable
 
-public partial class Logger
+public partial class Logger : ILogger
 {
     public LoggingTarget? Target { get; }
     public string Name { get; }
@@ -35,12 +36,26 @@ public partial class Logger
         Filename = $"{lower}.log";
     }
 
-    public void Add(string message = "", LogLevel level = LogLevel.Verbose, Exception exception = null) =>
+    #region ILogger
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+    {
+        var str = formatter(state, exception);
+        Add(str, logLevel, exception);
+    }
+
+    public bool IsEnabled(LogLevel level) => level >= MinimumLevel;
+
+    public IDisposable BeginScope<TState>(TState state) where TState : notnull => new InvokeOnDisposal(() => { });
+
+    #endregion
+
+    public void Add(string message = "", LogLevel level = LogLevel.Information, Exception exception = null) =>
         add(message, level, exception);
 
-    private void add(string message = "", LogLevel level = LogLevel.Verbose, Exception exception = null)
+    private void add(string message = "", LogLevel level = LogLevel.Information, Exception exception = null)
     {
-        if (level < MinimumLevel)
+        if (!IsEnabled(level))
             return;
 
         string logOutput = message;
@@ -49,13 +64,13 @@ public partial class Logger
             logOutput += $"\n{exception}";
 
         var lines = logOutput.Replace(@"\r\n", @"\n").Split('\n')
-                             .Select(s => $"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)} [{level.ToString().ToLowerInvariant()}]: {s.Trim()}");
+                             .Select(s => $"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)} [{getDisplayName(level)}]: {s.Trim()}");
 
         writeToConsole(logOutput, level);
 
         OnEntry?.Invoke(new Entry(level, Target, Name, message, exception));
 
-        if (Target == LoggingTarget.Info || !SaveToFiles)
+        if (level < LogLevel.Debug || !SaveToFiles)
             return;
 
         lock (flush_sync_lock)
@@ -75,7 +90,7 @@ public partial class Logger
     private void writeToConsole(string message, LogLevel level)
     {
         var target = (Target?.ToString() ?? Name).PadRight(10)[..10];
-        var severity = level.ToString().PadRight(8)[..8];
+        var severity = getDisplayName(level).PadRight(8)[..8];
 
         lock (writeLock)
         {

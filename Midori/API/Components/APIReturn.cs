@@ -4,7 +4,7 @@ namespace Midori.API.Components;
 
 public sealed class APIReturn<T>
 {
-    public HttpStatusCode Status { get; set; }
+    public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
     public string Message { get; set; } = string.Empty;
     public object? Result { get; set; }
 

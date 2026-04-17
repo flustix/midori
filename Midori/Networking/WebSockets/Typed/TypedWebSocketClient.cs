@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using Microsoft.Extensions.Logging;
 using Midori.Logging;
 using Midori.Networking.WebSockets.Typed.Proxy;
 using Midori.Utils;

@@ -2,12 +2,15 @@
 using System.Net;
 using System.Reflection;
 using System.Threading.Tasks;
-using Midori.API;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Midori.API.Attributes;
 using Midori.API.Components;
 using Midori.Logging;
 using Midori.Networking;
 using Midori.Networking.WebSockets.Typed;
-using Midori.Tests.Preset.API;
+using Midori.Utils.Extensions;
 
 namespace Midori.Tests;
 
@@ -15,7 +18,22 @@ internal static class Program
 {
     private static async Task Main(string[] args)
     {
-        var server = new HttpServer { NotFoundModule = new APIRouteModule<APIInteraction, TestRoute>() };
+        var builder = Host.CreateApplicationBuilder();
+        builder.Logging.ClearProviders();
+        builder.Logging.AddProvider(new MidoriLoggerProvider());
+        builder.Services.AddHttpServer(c =>
+        {
+            c.Address = IPAddress.Any;
+            c.Port = 2000;
+        });
+
+        var host = builder.Build();
+        var router = host.Services.GetRequiredService<HttpRouter>();
+        router.RegisterController<TestController>();
+        router.RegisterAPI<APIInteraction, IAPIRoute<APIInteraction>>(Assembly.GetEntryAssembly()!);
+        await host.RunAsync();
+
+        /*var server = new HttpServer { NotFoundModule = new APIRouteModule<APIInteraction, TestRoute>() };
         server.RegisterAPI<APIInteraction, IAPIRoute<APIInteraction>>(Assembly.GetEntryAssembly()!);
         server.MapModule<Socket>("/a");
         server.Start(IPAddress.Any, 9090);
@@ -23,7 +41,17 @@ internal static class Program
         // var client = new Client();
         // await client.StartWave();
 
-        await Task.Delay(-1);
+        await Task.Delay(-1);*/
+    }
+
+    [Controller("/")]
+    public class TestController
+    {
+        [HttpRoute("/test")]
+        public APIReturn<string> Test()
+        {
+            return Returns.NotFound();
+        }
     }
 
     private class Client : IClient

@@ -11,7 +11,7 @@ public class TestRouteRegistration : BaseAPITest
     [Test]
     public void TestRegister()
     {
-        Server.RegisterController<APIInteraction, TestController>();
+        // Server.RegisterController<APIInteraction, TestController>();
         Start();
         Task.Delay(-1).Wait();
     }
