@@ -7,10 +7,13 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Midori.API.Attributes;
 using Midori.API.Components;
+using Midori.API.Handlers;
 using Midori.Logging;
 using Midori.Networking;
+using Midori.Networking.Handlers;
 using Midori.Networking.WebSockets.Typed;
 using Midori.Utils.Extensions;
+using HttpStatusCode = Midori.Networking.HttpStatusCode;
 
 namespace Midori.Tests;
 
@@ -21,37 +24,38 @@ internal static class Program
         var builder = Host.CreateApplicationBuilder();
         builder.Logging.ClearProviders();
         builder.Logging.AddProvider(new MidoriLoggerProvider());
+        builder.Services.AddSingleton<IHttpReplyHandler, DefaultAPIReplyHandler>();
         builder.Services.AddHttpServer(c =>
         {
             c.Address = IPAddress.Any;
-            c.Port = 2000;
+            c.Port = 9090;
         });
 
         var host = builder.Build();
         var router = host.Services.GetRequiredService<HttpRouter>();
         router.RegisterController<TestController>();
         router.RegisterAPI<APIInteraction, IAPIRoute<APIInteraction>>(Assembly.GetEntryAssembly()!);
+        router.MapModule<Socket>("/socket");
         await host.RunAsync();
-
-        /*var server = new HttpServer { NotFoundModule = new APIRouteModule<APIInteraction, TestRoute>() };
-        server.RegisterAPI<APIInteraction, IAPIRoute<APIInteraction>>(Assembly.GetEntryAssembly()!);
-        server.MapModule<Socket>("/a");
-        server.Start(IPAddress.Any, 9090);
 
         // var client = new Client();
         // await client.StartWave();
-
-        await Task.Delay(-1);*/
     }
 
     [Controller("/")]
     public class TestController
     {
+        [HttpRoute("/waow/:id")]
+        public APIReturn<string> WithParameter()
+            => Returns.Message(HttpStatusCode.OK, "balls");
+
         [HttpRoute("/test")]
         public APIReturn<string> Test()
-        {
-            return Returns.NotFound();
-        }
+            => Returns.Message(HttpStatusCode.OK, "balls");
+
+        [HttpRoute("/other")]
+        public APIReturn<string> Other()
+            => Returns.Message(HttpStatusCode.OK, "yea");
     }
 
     private class Client : IClient

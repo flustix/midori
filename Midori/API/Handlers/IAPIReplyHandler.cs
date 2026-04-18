@@ -1,0 +1,13 @@
+using Midori.API.Components;
+using Midori.Networking;
+using Midori.Networking.Handlers;
+
+namespace Midori.API.Handlers;
+
+public interface IAPIReplyHandler : IHttpReplyHandler
+{
+    void Handle<T>(HttpServerContext ctx, APIReturn<T> ret);
+
+    void IHttpReplyHandler.Handle(HttpServerContext ctx, HttpStatusCode code, Exception? error)
+        => Handle<object>(ctx, new StatusReturn(code, ""));
+}

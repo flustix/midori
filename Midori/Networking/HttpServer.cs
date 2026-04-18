@@ -1,4 +1,5 @@
-﻿using System.Net.Sockets;
+﻿using System.Diagnostics;
+using System.Net.Sockets;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -21,12 +22,14 @@ public class HttpServer : IHostedService
     private readonly ILogger logger;
     private readonly HttpRouter router;
     private readonly HttpConfiguration configuration;
+    private readonly IHttpReplyHandler replyHandler;
 
-    public HttpServer(HttpRouter router, ILoggerFactory loggerFactory, IOptions<HttpConfiguration> config)
+    public HttpServer(HttpRouter router, ILoggerFactory loggerFactory, IOptions<HttpConfiguration> config, IHttpReplyHandler? handler = null)
     {
         this.router = router;
         logger = loggerFactory.CreateLogger(MidoriLoggerProvider.NETWORK);
         configuration = config.Value;
+        replyHandler = handler ?? new DefaultHttpReplyHandler();
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -136,8 +139,6 @@ public class HttpServer : IHostedService
 
         IHttpModule? mod;
 
-        var err = new DefaultHttpErrorHandler();
-
         try
         {
             mod = router.GetModule(path, method);
@@ -145,13 +146,13 @@ public class HttpServer : IHostedService
         catch (Exception ex)
         {
             logger.LogError(ex, $"Failed to create module for '{path}'!");
-            err.Handle(context, HttpStatusCode.InternalServerError, ex);
+            replyHandler.Handle(context, HttpStatusCode.InternalServerError, ex);
             return;
         }
 
         if (mod is null)
         {
-            err.Handle(context, HttpStatusCode.NotFound, null);
+            replyHandler.Handle(context, HttpStatusCode.NotFound, null);
             return;
         }
 
@@ -161,8 +162,9 @@ public class HttpServer : IHostedService
         }
         catch (Exception ex)
         {
+            Debug.Fail(ex.Message);
             logger.LogError(ex, $"Failed to handle module '{mod}' for '{path}'!");
-            err.Handle(context, HttpStatusCode.InternalServerError, ex);
+            replyHandler.Handle(context, HttpStatusCode.InternalServerError, ex);
         }
 
         /*if (!string.IsNullOrWhiteSpace(key))

@@ -1,12 +1,18 @@
 ﻿using Midori.Networking;
+using Newtonsoft.Json;
 
 namespace Midori.API.Components;
 
 public sealed class APIReturn<T>
 {
+    [JsonProperty("status")]
     public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
+
+    [JsonProperty("message")]
     public string Message { get; set; } = string.Empty;
-    public object? Result { get; set; }
+
+    [JsonProperty("data")]
+    public T? Result { get; set; }
 
     internal APIReturn()
     {

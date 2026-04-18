@@ -1,9 +1,12 @@
 using System.Reflection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Midori.API;
 using Midori.API.Attributes;
 using Midori.API.Components;
+using Midori.API.Handlers;
 using Midori.Logging;
+using Midori.Networking.Handlers;
 
 namespace Midori.Networking;
 
@@ -40,6 +43,8 @@ public partial class HttpRouter
     public void RegisterController<C>()
         where C : new()
     {
+        assureAPIHandler();
+
         var type = typeof(C);
         var prefix = string.Empty;
 
@@ -70,7 +75,7 @@ public partial class HttpRouter
         {
             var routeAttr = method.GetCustomAttribute<HttpRouteAttribute>()!;
             var path = Path.Combine(prefix, routeAttr.Path).Replace("\\", "/");
-            Logger.Log($"{type.FullName}.{method.Name}: {path}");
+            logger.LogDebug($"Registered {type.FullName}.{method.Name} to {path}");
 
             addModule(path, routeAttr.Method.GetSystemNet(), mod);
         }
@@ -162,6 +167,14 @@ public partial class HttpRouter
             paths[path] = new PathMethods();
 
         paths[path].AddMethod(method, mod);
+    }
+
+    private void assureAPIHandler()
+    {
+        var handler = services.GetService<IHttpReplyHandler>();
+
+        if (handler is not IAPIReplyHandler)
+            throw new InvalidOperationException($"A reply handler that inherits {nameof(IAPIReplyHandler)} needs to be registered in order for API routes to work.");
     }
 
     private static void assureValidPrefix(string prefix, string type = "Prefix")
