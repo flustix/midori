@@ -19,7 +19,7 @@ internal partial class ControllerRouteModule<T> : IHttpModule
     private readonly IServiceProvider services;
     private readonly IAPIReplyHandler replyHandler;
 
-    public ControllerRouteModule(ILoggerFactory loggerFactory, IAPIAuthenticator? defaultAuth, IServiceProvider services, IHttpReplyHandler replyHandler)
+    public ControllerRouteModule(ILoggerFactory loggerFactory, IServiceProvider services, IHttpReplyHandler replyHandler, IAPIAuthenticator? defaultAuth = null)
     {
         logger = loggerFactory.CreateLogger(MidoriLoggerProvider.NETWORK);
         this.defaultAuth = defaultAuth;
