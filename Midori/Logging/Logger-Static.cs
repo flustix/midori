@@ -98,9 +98,10 @@ public partial class Logger
 
     private static ConsoleColor getColor(LoggingTarget? target) => target switch
     {
+        LoggingTarget.General => ConsoleColor.Blue,
         LoggingTarget.Database => ConsoleColor.Green,
         LoggingTarget.Network => ConsoleColor.Magenta,
-        _ => ConsoleColor.Blue
+        _ => ConsoleColor.White
     };
 
     private static string getDisplayName(LogLevel level) => level switch

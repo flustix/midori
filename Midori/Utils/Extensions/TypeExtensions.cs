@@ -39,7 +39,7 @@ public static class TypeExtensions
         var result = methods.Select(method =>
         {
             var attr = method.GetCustomAttribute<HttpRouteAttribute>()!;
-            var path = Path.Combine(prefix, attr.Path).Replace("\\", "/");
+            var path = Path.Combine(prefix, attr.Path.TrimStart('/')).Replace("\\", "/");
             return (method, attr, path);
         }).ToList();
 

@@ -32,7 +32,7 @@ public partial class HttpRouter
 
         foreach (var type in types)
         {
-            var method = typeof(HttpServer)
+            var method = typeof(HttpRouter)
                          .GetMethod(nameof(RegisterController), BindingFlags.Instance | BindingFlags.Public)!
                          .MakeGenericMethod(type);
 
@@ -41,7 +41,6 @@ public partial class HttpRouter
     }
 
     public void RegisterController<C>()
-        where C : new()
     {
         assureAPIHandler();
 
@@ -74,8 +73,8 @@ public partial class HttpRouter
         foreach (var method in methods)
         {
             var routeAttr = method.GetCustomAttribute<HttpRouteAttribute>()!;
-            var path = Path.Combine(prefix, routeAttr.Path).Replace("\\", "/");
-            logger.LogDebug($"Registered {type.FullName}.{method.Name} to {path}");
+            var path = Path.Combine(prefix, routeAttr.Path.TrimStart('/')).Replace("\\", "/");
+            logger.LogInformation($"Registered {type.FullName}.{method.Name} to {path}");
 
             addModule(path, routeAttr.Method.GetSystemNet(), mod);
         }

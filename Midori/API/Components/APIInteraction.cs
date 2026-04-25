@@ -13,7 +13,7 @@ namespace Midori.API.Components;
 public class APIInteraction : IDisposable
 {
     protected virtual string[] AllowedMethods => new[] { "GET", "POST", "PUT", "DELETE", "OPTIONS" };
-    protected virtual string[] AllowedHeaders => new[] { "Content-Type", "Authorization", "X-Requested-With", "X-Forwarded-For" };
+    protected virtual string[] AllowedHeaders => new[] { "Content-Type", "Authorization", "X-Forwarded-For", "X-Multifactor-Token", "X-Requested-With" };
 
     protected virtual bool RespondOnInvalidParameter => true;
 

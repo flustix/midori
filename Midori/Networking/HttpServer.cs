@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -11,11 +10,7 @@ namespace Midori.Networking;
 public class HttpServer : IHostedService
 {
     private TcpListener? listener;
-    private Dictionary<string, PathMethods> paths { get; } = new();
-    private Dictionary<Type, HttpConnectionManager> managers { get; } = new();
-
-    public IHttpModule? NotFoundModule { get; set; }
-    public IHttpModule? MethodNotAllowedModule { get; set; }
+    // private Dictionary<Type, HttpConnectionManager> managers { get; } = new();
 
     private bool running = true;
 
@@ -29,7 +24,7 @@ public class HttpServer : IHostedService
         this.router = router;
         logger = loggerFactory.CreateLogger(MidoriLoggerProvider.NETWORK);
         configuration = config.Value;
-        replyHandler = handler ?? new DefaultHttpReplyHandler();
+        replyHandler = handler ?? new DefaultHttpReplyHandler(config);
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -62,7 +57,7 @@ public class HttpServer : IHostedService
         return Task.CompletedTask;
     }
 
-    public HttpConnectionManager<T> MapModule<T>(string prefix, HttpMethod? method = null, Action<T>? config = null)
+    /*public HttpConnectionManager<T> MapModule<T>(string prefix, HttpMethod? method = null, Action<T>? config = null)
         where T : IHttpModule, new()
     {
         assureValidPrefix(prefix);
@@ -77,7 +72,7 @@ public class HttpServer : IHostedService
             managers.Add(typeof(T), new HttpConnectionManager<T>());
 
         return (HttpConnectionManager<T>)managers[typeof(T)];
-    }
+    }*/
 
     private static void assureValidPrefix(string prefix, string type = "Prefix")
     {
@@ -162,7 +157,6 @@ public class HttpServer : IHostedService
         }
         catch (Exception ex)
         {
-            Debug.Fail(ex.Message);
             logger.LogError(ex, $"Failed to handle module '{mod}' for '{path}'!");
             replyHandler.Handle(context, HttpStatusCode.InternalServerError, ex);
         }
@@ -207,25 +201,5 @@ public class HttpServer : IHostedService
             else
                 NotFoundModule.Process(context);
         }*/
-    }
-
-    private class PathMethods
-    {
-        private readonly Dictionary<HttpMethod, RegisteredModule> methods = new();
-
-        public void AddMethod(HttpMethod method, RegisteredModule mod) => methods.Add(method, mod);
-        public RegisteredModule? GetForMethod(HttpMethod? method) => method is null ? null : methods.GetValueOrDefault(method);
-    }
-
-    private class RegisteredModule
-    {
-        public Type Type { get; }
-        public Action<object>? Config { get; }
-
-        public RegisteredModule(Type type, Action<object>? config)
-        {
-            Type = type;
-            Config = config;
-        }
     }
 }

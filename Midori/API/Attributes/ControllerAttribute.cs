@@ -8,7 +8,7 @@ public class ControllerAttribute : Attribute
 {
     public string Prefix { get; }
 
-    public ControllerAttribute(string prefix)
+    public ControllerAttribute(string prefix = "/")
     {
         Prefix = prefix;
     }

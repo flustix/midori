@@ -1,4 +1,5 @@
 ﻿using Midori.Networking;
+using Midori.Utils;
 using Newtonsoft.Json;
 
 namespace Midori.API.Components;
@@ -13,6 +14,28 @@ public sealed class APIReturn<T>
 
     [JsonProperty("data")]
     public T? Result { get; set; }
+
+    [JsonProperty("errors")]
+    public Dictionary<string, string>? Errors { get; set; }
+
+    [JsonIgnore]
+    public Exception? Exception { get; set; }
+
+    [JsonProperty("exception")]
+    public object? SentException
+    {
+        get
+        {
+            if (Exception is null) return null;
+            if (!RuntimeUtils.IsDebugBuild) return null;
+
+            return new
+            {
+                message = Exception.Message,
+                trace = (Exception.StackTrace ?? "").Split("\n").Select(x => x.Trim())
+            };
+        }
+    }
 
     internal APIReturn()
     {
@@ -37,5 +60,7 @@ public sealed class StatusReturn
 public static class Returns
 {
     public static StatusReturn Message(HttpStatusCode status, string message) => new(status, message);
-    public static StatusReturn NotFound() => new(HttpStatusCode.NotFound, "The requested object could not be found.");
+
+    public static StatusReturn Okay() => Message(HttpStatusCode.OK, "OK");
+    public static StatusReturn NotFound() => Message(HttpStatusCode.NotFound, "The requested object could not be found.");
 }

@@ -9,10 +9,12 @@ public class HttpServerContext : IDisposable
 
     internal Stream Stream { get; }
 
-    public IPEndPoint? EndPoint { get; }
+    public IPEndPoint EndPoint { get; internal set; }
+    public IPAddress RemoteIP => EndPoint.Address;
+
     public HttpRequest Request { get; }
 
-    public HttpServerContext(TcpClient client)
+    internal HttpServerContext(TcpClient client)
     {
         this.client = client;
 

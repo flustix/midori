@@ -9,5 +9,9 @@ public interface IAPIReplyHandler : IHttpReplyHandler
     void Handle<T>(HttpServerContext ctx, APIReturn<T> ret);
 
     void IHttpReplyHandler.Handle(HttpServerContext ctx, HttpStatusCode code, Exception? error)
-        => Handle<object>(ctx, new StatusReturn(code, ""));
+    {
+        var ret = (APIReturn<object>)new StatusReturn(code, "");
+        ret.Exception = error;
+        Handle(ctx, ret);
+    }
 }
