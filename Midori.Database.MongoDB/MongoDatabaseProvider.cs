@@ -12,8 +12,10 @@ public class MongoDatabaseProvider : IDatabaseProvider
 
     public MongoDatabaseProvider(IOptions<MongoConfig> settings, ILoggerFactory loggerFactory)
     {
-        client = new MongoClient(settings.Value.Connection);
-        client.Settings.LoggingSettings = new LoggingSettings(loggerFactory);
+        var mcs = MongoClientSettings.FromConnectionString(settings.Value.Connection);
+        mcs.LoggingSettings = new LoggingSettings(loggerFactory);
+        client = new MongoClient(mcs);
+
         db = client.GetDatabase(settings.Value.Database);
     }
 
