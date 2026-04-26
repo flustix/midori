@@ -171,7 +171,7 @@ internal partial class ControllerRouteModule<T> : IHttpModule
             {
                 value = getBody(ctx).GetFormEntry(type, name);
                 if (value is null && optional) value = parameter.HasDefaultValue ? parameter.DefaultValue : null;
-                else throw getMissingParam(name, source);
+                else if (value is null) throw getMissingParam(name, source);
             }
             else
             {
