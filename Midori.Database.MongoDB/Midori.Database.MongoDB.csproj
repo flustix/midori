@@ -4,6 +4,10 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <PackageId>flustix.Midori.Database.MongoDB</PackageId>
+        <Description>MongoDB database adapter for Midori.</Description>
+        <Authors>flustix</Authors>
+        <RepositoryUrl>https://github.com/flustix/midori</RepositoryUrl>
     </PropertyGroup>
 
     <ItemGroup>
