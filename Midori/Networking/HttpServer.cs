@@ -132,6 +132,12 @@ public class HttpServer : IHostedService
             _ => HttpMethod.Get
         };
 
+        if (method == HttpMethod.Options && configuration.AutoHandleOptions)
+        {
+            replyHandler.Handle(context, HttpStatusCode.OK, null);
+            return;
+        }
+
         IHttpModule? mod;
 
         try
