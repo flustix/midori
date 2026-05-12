@@ -4,7 +4,7 @@ public class ServerWebSocket : WebSocket
 {
     protected override bool MaskData => false;
 
-    private HttpServerContext context { get; }
+    private HttpServerContext? context;
 
     public ServerWebSocket(HttpServerContext context)
         : base(context.Stream)
@@ -17,8 +17,10 @@ public class ServerWebSocket : WebSocket
     public override void Dispose()
     {
         base.Dispose();
-        context.Close();
+
+        context?.Dispose();
+        context = null;
     }
 
-    public override string ToString() => $"{context.EndPoint} {base.ToString()}";
+    public override string ToString() => $"{context?.EndPoint} {base.ToString()}";
 }

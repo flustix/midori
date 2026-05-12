@@ -25,12 +25,6 @@ public class HttpServerContext : IDisposable
         Request = HttpRequest.ReadRequest(Stream);
     }
 
-    public void Close()
-    {
-        client.Close();
-        Dispose();
-    }
-
     public void Dispose()
     {
         GC.SuppressFinalize(this);

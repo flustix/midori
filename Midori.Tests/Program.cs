@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Net;
-using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -34,7 +33,6 @@ internal static class Program
         var host = builder.Build();
         var router = host.Services.GetRequiredService<HttpRouter>();
         router.RegisterController<TestController>();
-        router.RegisterAPI<APIInteraction, IAPIRoute<APIInteraction>>(Assembly.GetEntryAssembly()!);
         router.MapModule<Socket>("/socket");
         await host.RunAsync();
 

@@ -318,6 +318,7 @@ public abstract class WebSocket : IDisposable
     public virtual void Dispose()
     {
         Stream.Dispose();
+        Stream = null!;
     }
 
     public override string ToString() => $"{State} {Stream}";

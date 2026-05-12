@@ -28,7 +28,7 @@ public abstract class WebSocketSession : IHttpModule
 
         if (!success)
         {
-            Context.Close();
+            Context.Dispose();
             return;
         }
 

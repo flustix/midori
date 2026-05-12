@@ -128,7 +128,10 @@ public class ClientWebSocket : WebSocket
     public override void Dispose()
     {
         base.Dispose();
+
         client.Close();
+        client = null!;
+
         pingCancel?.Cancel();
     }
 

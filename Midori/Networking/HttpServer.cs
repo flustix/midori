@@ -70,14 +70,17 @@ public class HttpServer : IHostedService
 
                 ThreadPool.QueueUserWorkItem(_ =>
                 {
+                    HttpServerContext? ctx = null;
+
                     try
                     {
-                        var ctx = new HttpServerContext(client);
+                        ctx = new HttpServerContext(client);
                         processClient(ctx);
                     }
-                    catch (Exception)
+                    finally
                     {
-                        client.Close();
+                        ctx?.Dispose();
+                        client?.Dispose();
                     }
                 });
             }

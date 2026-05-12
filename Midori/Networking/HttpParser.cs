@@ -45,13 +45,14 @@ internal static class HttpParser
         var buffer = new List<byte>();
 
         var end = false;
+        var a = add;
 
         while (!end)
         {
-            end = stream.ReadByte().EqualTo('\r', add)
-                  && stream.ReadByte().EqualTo('\n', add)
-                  && stream.ReadByte().EqualTo('\r', add)
-                  && stream.ReadByte().EqualTo('\n', add);
+            end = stream.ReadByte().EqualTo('\r', a)
+                  && stream.ReadByte().EqualTo('\n', a)
+                  && stream.ReadByte().EqualTo('\r', a)
+                  && stream.ReadByte().EqualTo('\n', a);
         }
 
         var bytes = buffer.ToArray();
