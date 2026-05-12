@@ -1,5 +1,7 @@
+using System.Reflection;
 using System.Text;
 using Microsoft.Extensions.Options;
+using Midori.API.Attributes;
 using Midori.API.Components;
 using Midori.Networking;
 using Midori.Utils;
@@ -8,6 +10,8 @@ namespace Midori.API.Handlers;
 
 public class DefaultAPIReplyHandler : IAPIReplyHandler
 {
+    public MethodInfo? TargetMethod { get; set; }
+
     private readonly HttpConfiguration config;
 
     public DefaultAPIReplyHandler(IOptions<HttpConfiguration> config)
@@ -19,12 +23,26 @@ public class DefaultAPIReplyHandler : IAPIReplyHandler
     {
         var rsp = new HttpResponse(ret.Status);
         config.ApplyHeaders(rsp.Headers);
-        rsp.Headers["Content-Type"] = "application/json";
 
-        var bytes = Encoding.UTF8.GetBytes(ret.Serialize());
-        rsp.BodyStream.Write(bytes);
+        var ct = TargetMethod?.GetCustomAttribute<ReturnsMimeAttribute>()?.MimeType ?? "application/json";
+        rsp.ContentType = ct;
 
-        rsp.ContentLength = bytes.Length;
+        if (ret.Result is Stream stream)
+        {
+            if (stream.CanSeek)
+                stream.Seek(0, SeekOrigin.Begin);
+
+            var startPos = stream.Position;
+            stream.CopyTo(rsp.BodyStream);
+            rsp.ContentLength = stream.Position - startPos;
+            stream.Dispose();
+        }
+        else
+        {
+            var bytes = Encoding.UTF8.GetBytes(ret.Serialize());
+            rsp.BodyStream.Write(bytes);
+            rsp.ContentLength = bytes.Length;
+        }
 
         try
         {

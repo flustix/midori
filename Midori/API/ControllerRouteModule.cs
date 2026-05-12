@@ -7,6 +7,7 @@ using Midori.API.Handlers;
 using Midori.Logging;
 using Midori.Networking;
 using Midori.Networking.Handlers;
+using Midori.Networking.Middleware;
 using Midori.Utils.Extensions;
 
 namespace Midori.API;
@@ -18,12 +19,14 @@ internal partial class ControllerRouteModule<T> : IHttpModule
     private readonly IAPIAuthenticator? defaultAuth;
     private readonly IServiceProvider services;
     private readonly IAPIReplyHandler replyHandler;
+    private readonly HttpRouter router;
 
-    public ControllerRouteModule(ILoggerFactory loggerFactory, IServiceProvider services, IHttpReplyHandler replyHandler, IAPIAuthenticator? defaultAuth = null)
+    public ControllerRouteModule(ILoggerFactory loggerFactory, IServiceProvider services, IHttpReplyHandler replyHandler, HttpRouter router, IAPIAuthenticator? defaultAuth = null)
     {
         logger = loggerFactory.CreateLogger(MidoriLoggerProvider.NETWORK);
         this.defaultAuth = defaultAuth;
         this.services = services;
+        this.router = router;
         this.replyHandler = (replyHandler as IAPIReplyHandler)!;
     }
 
@@ -39,6 +42,9 @@ internal partial class ControllerRouteModule<T> : IHttpModule
 
         var (method, _, _) = methods.FirstOrDefault(x =>
         {
+            if (!string.Equals(x.attr.Method.ToString(), ctx.Request.Method, StringComparison.InvariantCultureIgnoreCase))
+                return false;
+
             var (_, _, p) = x;
 
             var ksp = p.Split("/", StringSplitOptions.RemoveEmptyEntries);
@@ -64,6 +70,12 @@ internal partial class ControllerRouteModule<T> : IHttpModule
 
         if (method is null)
             throw new InvalidOperationException($"Failed to get method for path '{ctx.Request.Target}'.");
+
+        var handler = replyHandler;
+        var handlerAttr = method.GetCustomAttribute<ReplyHandlerAttribute>();
+
+        if (handlerAttr != null)
+            handler = (IAPIReplyHandler)ActivatorUtilities.CreateInstance(services, handlerAttr.CustomType);
 
         var authenticated = method.GetCustomAttribute<AuthenticatedAttribute>();
         var authData = new Dictionary<string, object>();
@@ -91,7 +103,7 @@ internal partial class ControllerRouteModule<T> : IHttpModule
 
                 if (!success && authenticated.Required)
                 {
-                    replyHandler.Handle<object>(ctx, Returns.Message(HttpStatusCode.Unauthorized, "Invalid authentication data."));
+                    handler.Handle<object>(ctx, Returns.Message(HttpStatusCode.Unauthorized, "Invalid authentication data."));
                     return;
                 }
 
@@ -102,7 +114,7 @@ internal partial class ControllerRouteModule<T> : IHttpModule
                         if (userScopes.Contains(scope))
                             continue;
 
-                        replyHandler.Handle<object>(ctx, Returns.Message(HttpStatusCode.Forbidden, $"Missing scope '{scope}'."));
+                        handler.Handle<object>(ctx, Returns.Message(HttpStatusCode.Forbidden, $"Missing scope '{scope}'."));
                         return;
                     }
                 }
@@ -111,7 +123,16 @@ internal partial class ControllerRouteModule<T> : IHttpModule
 
         var instance = ActivatorUtilities.CreateInstance<T>(services);
 
-        List<object?> parameters;
+        foreach (var middleware in router.GetMiddlewares<IParameterMiddleware>(services))
+        {
+            var pResult = middleware.Handle(ctx, instance, method, new IParameterMiddleware.Data(rawParams, authData));
+            if (pResult == null) continue;
+
+            handler.Handle(ctx, pResult);
+            return;
+        }
+
+        Dictionary<ParameterInfo, object?> parameters;
 
         try
         {
@@ -119,7 +140,13 @@ internal partial class ControllerRouteModule<T> : IHttpModule
         }
         catch (KeyNotFoundException ex)
         {
-            replyHandler.Handle<object>(ctx, Returns.Message(HttpStatusCode.BadRequest, ex.Message));
+            handler.Handle<object>(ctx, Returns.Message(HttpStatusCode.BadRequest, ex.Message));
+            return;
+        }
+        catch (RequestValidationException rvex)
+        {
+            var vrs = rvex.Results;
+            handler.Handle(ctx, Returns.ValidationError<object>(vrs));
             return;
         }
         catch (Exception ex)
@@ -128,27 +155,27 @@ internal partial class ControllerRouteModule<T> : IHttpModule
             return;
         }
 
-        var result = method.Invoke(instance, parameters.ToArray())!;
+        var result = method.Invoke(instance, parameters.OrderBy(x => x.Key.Position).Select(x => x.Value).ToArray())!;
         var resultType = result.GetType();
 
         if (!resultType.IsGenericType && resultType.GetGenericTypeDefinition() != typeof(APIReturn<>))
             throw new InvalidOperationException($"{typeof(T)}.{method.Name} does not return APIReturn<>.");
 
         var gen = resultType.GetGenericArguments().First();
-        var handle = replyHandler.GetType().GetMethod("Handle", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)!.MakeGenericMethod(gen);
-        handle.Invoke(replyHandler, new[] { ctx, result });
+        var handle = handler.GetType().GetMethod("Handle", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)!.MakeGenericMethod(gen);
+        handle.Invoke(handler, new[] { ctx, result });
     }
 
-    private List<object?> getCallParameters(HttpServerContext ctx, MethodInfo method, Dictionary<string, string> pathParameters, Dictionary<string, object> authData)
+    private Dictionary<ParameterInfo, object?> getCallParameters(HttpServerContext ctx, MethodInfo method, Dictionary<string, string> pathParameters, Dictionary<string, object> authData)
     {
-        var result = new List<object?>();
+        var result = new Dictionary<ParameterInfo, object?>();
 
         foreach (var parameter in method.GetParameters())
         {
             var type = parameter.ParameterType;
             var srcAttr = parameter.GetCustomAttribute<SourceAttribute>();
             var source = srcAttr?.Source ?? ParameterSource.Path;
-            var name = /*srcAttr?.Name ?? */parameter.Name ?? throw new InvalidOperationException($"Parameter does not have a name [{type}].");
+            var name = srcAttr?.Name ?? parameter.Name ?? throw new InvalidOperationException($"Parameter does not have a name [{type}].");
             var optional = parameter.IsNullable() || parameter.HasDefaultValue;
 
             object? value = null;
@@ -188,9 +215,12 @@ internal partial class ControllerRouteModule<T> : IHttpModule
                     if (!optional)
                         throw getMissingParam(name, source);
 
-                    result.Add(parameter.HasDefaultValue ? parameter.DefaultValue : null);
+                    result.Add(parameter, parameter.HasDefaultValue ? parameter.DefaultValue : null);
                     continue;
                 }
+
+                if (parameter.IsNullable())
+                    type = Nullable.GetUnderlyingType(parameter.ParameterType) ?? type;
 
                 if (type == typeof(string))
                     value = raw;
@@ -207,7 +237,7 @@ internal partial class ControllerRouteModule<T> : IHttpModule
             if (value is null)
                 throw new InvalidOperationException($"Type {type} is not supported as parameter.");
 
-            result.Add(value);
+            result.Add(parameter, value);
         }
 
         return result;

@@ -1,7 +1,9 @@
 ﻿using System.Net.Sockets;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Midori.API.Handlers;
 using Midori.Logging;
 using Midori.Networking.Handlers;
 
@@ -10,21 +12,20 @@ namespace Midori.Networking;
 public class HttpServer : IHostedService
 {
     private TcpListener? listener;
-    // private Dictionary<Type, HttpConnectionManager> managers { get; } = new();
 
     private bool running = true;
 
     private readonly ILogger logger;
     private readonly HttpRouter router;
     private readonly HttpConfiguration configuration;
-    private readonly IHttpReplyHandler replyHandler;
+    private readonly IServiceProvider services;
 
-    public HttpServer(HttpRouter router, ILoggerFactory loggerFactory, IOptions<HttpConfiguration> config, IHttpReplyHandler? handler = null)
+    public HttpServer(HttpRouter router, ILoggerFactory loggerFactory, IOptions<HttpConfiguration> config, IServiceProvider services)
     {
         this.router = router;
+        this.services = services;
         logger = loggerFactory.CreateLogger(MidoriLoggerProvider.NETWORK);
         configuration = config.Value;
-        replyHandler = handler ?? new DefaultHttpReplyHandler(config);
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -55,31 +56,6 @@ public class HttpServer : IHostedService
         logger.LogInformation("Closed HTTP server.");
 
         return Task.CompletedTask;
-    }
-
-    /*public HttpConnectionManager<T> MapModule<T>(string prefix, HttpMethod? method = null, Action<T>? config = null)
-        where T : IHttpModule, new()
-    {
-        assureValidPrefix(prefix);
-        method ??= HttpMethod.Get;
-
-        if (!paths.ContainsKey(prefix))
-            paths[prefix] = new PathMethods();
-
-        paths[prefix].AddMethod(method, new RegisteredModule(typeof(T), o => config?.Invoke((T)o)));
-
-        if (!managers.ContainsKey(typeof(T)))
-            managers.Add(typeof(T), new HttpConnectionManager<T>());
-
-        return (HttpConnectionManager<T>)managers[typeof(T)];
-    }*/
-
-    private static void assureValidPrefix(string prefix, string type = "Prefix")
-    {
-        if (!prefix.StartsWith('/'))
-            throw new ArgumentException($"{type} has to start with /.");
-        if (prefix.Length > 1 && prefix.EndsWith('/'))
-            throw new ArgumentException($"{type} can't end with /.");
     }
 
     private void receiveLoop()
@@ -116,6 +92,7 @@ public class HttpServer : IHostedService
 
     private void processClient(HttpServerContext context)
     {
+        var scope = services.CreateScope();
         var path = context.Request.Target.Split("?").First();
 
         HttpMethod? method = context.Request.Method switch
@@ -132,9 +109,11 @@ public class HttpServer : IHostedService
             _ => HttpMethod.Get
         };
 
+        var handler = scope.ServiceProvider.GetService<IHttpReplyHandler>() ?? new DefaultAPIReplyHandler(new OptionsWrapper<HttpConfiguration>(configuration));
+
         if (method == HttpMethod.Options && configuration.AutoHandleOptions)
         {
-            replyHandler.Handle(context, HttpStatusCode.OK, null);
+            handler.Handle(context, HttpStatusCode.OK, null);
             return;
         }
 
@@ -142,20 +121,23 @@ public class HttpServer : IHostedService
 
         try
         {
-            mod = router.GetModule(path, method);
+            mod = router.GetModule(path, method, scope);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, $"Failed to create module for '{path}'!");
-            replyHandler.Handle(context, HttpStatusCode.InternalServerError, ex);
+            handler.Handle(context, HttpStatusCode.InternalServerError, ex);
             return;
         }
 
         if (mod is null)
         {
-            replyHandler.Handle(context, HttpStatusCode.NotFound, null);
+            handler.Handle(context, HttpStatusCode.NotFound, null);
             return;
         }
+
+        var manager = router.GetConnectionManager(mod.GetType());
+        manager?.Add(mod);
 
         try
         {
@@ -164,48 +146,9 @@ public class HttpServer : IHostedService
         catch (Exception ex)
         {
             logger.LogError(ex, $"Failed to handle module '{mod}' for '{path}'!");
-            replyHandler.Handle(context, HttpStatusCode.InternalServerError, ex);
+            handler.Handle(context, HttpStatusCode.InternalServerError, ex);
         }
 
-        /*if (!string.IsNullOrWhiteSpace(key))
-        {
-            HttpConnectionManager? manager = null;
-            IHttpModule? module = null;
-
-            try
-            {
-                var mod = methods.GetForMethod(method);
-
-                if (mod is null)
-                {
-                    (MethodNotAllowedModule ?? NotFoundModule)?.Process(context);
-                    return;
-                }
-
-                module = (IHttpModule)Activator.CreateInstance(mod.Type)!;
-                mod.Config?.Invoke(module);
-
-                if (managers.TryGetValue(mod.Type, out var m))
-                    manager = m;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, $"Failed to create module for path {context.Request.Target}.", LoggingTarget.Network);
-            }
-
-            if (module is null)
-                return;
-
-            manager?.Add(module);
-            module.Process(context).Wait();
-            manager?.Remove(module);
-        }
-        else
-        {
-            if (NotFoundModule is null)
-                Logger.Log($"No matching module found for {context.Request.Target}!", LoggingTarget.Network, LogLevel.Information);
-            else
-                NotFoundModule.Process(context);
-        }*/
+        manager?.Remove(mod);
     }
 }

@@ -7,6 +7,7 @@ using Midori.API.Components;
 using Midori.API.Handlers;
 using Midori.Logging;
 using Midori.Networking.Handlers;
+using Midori.Networking.Middleware;
 
 namespace Midori.Networking;
 
@@ -16,6 +17,8 @@ public partial class HttpRouter
     private readonly IServiceProvider services;
 
     private Dictionary<string, PathMethods> paths { get; } = new();
+    private List<Type> middlewares { get; } = new();
+    private Dictionary<Type, HttpConnectionManager> managers { get; } = new();
 
     public HttpRouter(ILoggerFactory loggerFactory, IServiceProvider services)
     {
@@ -74,7 +77,7 @@ public partial class HttpRouter
         {
             var routeAttr = method.GetCustomAttribute<HttpRouteAttribute>()!;
             var path = Path.Combine(prefix, routeAttr.Path.TrimStart('/')).Replace("\\", "/");
-            logger.LogInformation($"Registered {type.FullName}.{method.Name} to {path}");
+            logger.LogDebug($"Registered {type.FullName}.{method.Name} to {path}");
 
             addModule(path, routeAttr.Method.GetSystemNet(), mod);
         }
@@ -122,14 +125,36 @@ public partial class HttpRouter
 
     #endregion
 
-    public void MapModule<T>(string prefix, HttpMethod? method = null, Action<T>? config = null)
-        where T : class, IHttpModule, new()
+    public void AddMiddleware<T>()
+        where T : class, IMiddleware
+    {
+        middlewares.Add(typeof(T));
+    }
+
+    internal List<T> GetMiddlewares<T>(IServiceProvider svc)
+        where T : IMiddleware
+    {
+        var matches = middlewares.Where(x => x.IsAssignableTo(typeof(T)));
+        return matches.Select(x => (T)ActivatorUtilities.CreateInstance(svc, x)).ToList();
+    }
+
+    public HttpConnectionManager<T>? MapModule<T>(string prefix, HttpMethod? method = null, Action<T>? config = null, bool manager = false)
+        where T : class, IHttpModule
     {
         var mod = new TransientMethodModule<T> { Configure = config };
         addModule(prefix, method ?? HttpMethod.Get, mod);
+
+        if (manager)
+        {
+            var m = new HttpConnectionManager<T>();
+            managers.Add(typeof(T), m);
+            return m;
+        }
+
+        return null;
     }
 
-    public IHttpModule? GetModule(string path, HttpMethod method)
+    public IHttpModule? GetModule(string path, HttpMethod method, IServiceScope scope)
     {
         var split = path.Split("/", StringSplitOptions.RemoveEmptyEntries);
         var sorted = paths.OrderByDescending(a => a.Key.Length);
@@ -155,8 +180,10 @@ public partial class HttpRouter
         });
 
         var mod = methods?.GetForMethod(method);
-        return mod?.CreateHttpModule(services);
+        return mod?.CreateHttpModule(scope.ServiceProvider);
     }
+
+    public HttpConnectionManager? GetConnectionManager(Type type) => managers.GetValueOrDefault(type);
 
     private void addModule(string path, HttpMethod method, IMethodModule mod)
     {

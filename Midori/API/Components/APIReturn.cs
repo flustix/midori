@@ -1,4 +1,5 @@
-﻿using Midori.Networking;
+﻿using System.ComponentModel.DataAnnotations;
+using Midori.Networking;
 using Midori.Utils;
 using Newtonsoft.Json;
 
@@ -16,12 +17,12 @@ public sealed class APIReturn<T>
     public T? Result { get; set; }
 
     [JsonProperty("errors")]
-    public Dictionary<string, string>? Errors { get; set; }
+    public Dictionary<string, string[]>? Errors { get; set; }
 
     [JsonIgnore]
     public Exception? Exception { get; set; }
 
-    [JsonProperty("exception")]
+    [JsonProperty("exception", NullValueHandling = NullValueHandling.Ignore)]
     public object? SentException
     {
         get
@@ -62,5 +63,23 @@ public static class Returns
     public static StatusReturn Message(HttpStatusCode status, string message) => new(status, message);
 
     public static StatusReturn Okay() => Message(HttpStatusCode.OK, "OK");
+    public static StatusReturn Created(string message = "") => Message(HttpStatusCode.Created, message);
+    public static StatusReturn NoContent(string message = "") => Message(HttpStatusCode.NoContent, message);
+
+    public static StatusReturn NotModified(string message = "") => Message(HttpStatusCode.NotModified, message);
+
     public static StatusReturn NotFound() => Message(HttpStatusCode.NotFound, "The requested object could not be found.");
+    public static StatusReturn NotFound(string obj) => Message(HttpStatusCode.NotFound, $"The requested {obj} could not be found.");
+
+    public static APIReturn<T> ValidationError<T>(List<ValidationResult> results) => new()
+    {
+        Status = HttpStatusCode.BadRequest,
+        Message = results.FirstOrDefault()?.ErrorMessage ?? "Failed to validate request.",
+        Errors = results.SelectMany(r => r.MemberNames.Select(n => new { n, r = r.ErrorMessage ?? "Unknown Error" }))
+                        .GroupBy(x => x.n)
+                        .ToDictionary(
+                            g => g.Key,
+                            g => g.Select(x => x.r).ToArray()
+                        )
+    };
 }
