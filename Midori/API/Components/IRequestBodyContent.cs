@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
-using System.Reflection;
 using System.Text;
+using System.Web;
 using HttpMultipartParser;
+using JetBrains.Annotations;
+using Midori.Networking;
 using Midori.Utils;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -18,9 +20,9 @@ public class StreamRequestBodyContent : IRequestBodyContent
 {
     private readonly Stream stream;
 
-    public StreamRequestBodyContent(Stream stream)
+    public StreamRequestBodyContent(HttpServerContext ctx)
     {
-        this.stream = stream;
+        stream = ctx.Request.BodyStream;
     }
 
     public object? GetFull(Type requestedType)
@@ -38,8 +40,10 @@ public class JsonRequestBodyContent : IRequestBodyContent
 {
     private readonly JObject parsed;
 
-    public JsonRequestBodyContent(Stream input)
+    [UsedImplicitly]
+    public JsonRequestBodyContent(HttpServerContext ctx)
     {
+        var input = ctx.Request.BodyStream;
         var bytes = new byte[input.Length];
         input.ReadExactly(bytes);
 
@@ -64,10 +68,7 @@ public class JsonRequestBodyContent : IRequestBodyContent
             return new MemoryStream(by);
         }
 
-        var method = typeof(JsonUtils).GetMethod(nameof(JsonUtils.Deserialize), BindingFlags.Public | BindingFlags.Static)!
-                                      .MakeGenericMethod(requestedType);
-
-        var result = method.Invoke(null, new object?[] { json });
+        var result = json.Deserialize(requestedType);
         if (result is null) return null;
 
         var results = new List<ValidationResult>();
@@ -86,9 +87,10 @@ public class MultipartRequestBodyContent : IRequestBodyContent
 {
     private readonly MultipartFormDataParser parser;
 
-    public MultipartRequestBodyContent(Stream input)
+    [UsedImplicitly]
+    public MultipartRequestBodyContent(HttpServerContext ctx)
     {
-        parser = MultipartFormDataParser.Parse(input, Encoding.UTF8);
+        parser = MultipartFormDataParser.Parse(ctx.Request.BodyStream, Encoding.UTF8);
     }
 
     public object? GetFull(Type requestedType)
@@ -118,5 +120,74 @@ public class MultipartRequestBodyContent : IRequestBodyContent
         }
 
         return null;
+    }
+}
+
+public class FormUrlEncodedRequestBodyContent : IRequestBodyContent
+{
+    private readonly Dictionary<string, string> parameters;
+
+    [UsedImplicitly]
+    public FormUrlEncodedRequestBodyContent(HttpServerContext ctx)
+    {
+        var input = ctx.Request.BodyStream;
+        var bytes = new byte[input.Length];
+        input.ReadExactly(bytes);
+
+        var text = Encoding.UTF8.GetString(bytes);
+
+        try
+        {
+            parameters = Parse(text);
+        }
+        catch
+        {
+            parameters = new Dictionary<string, string>();
+        }
+    }
+
+    internal FormUrlEncodedRequestBodyContent(Dictionary<string, string> dict)
+    {
+        parameters = dict;
+    }
+
+    public object? GetFull(Type requestedType)
+    {
+        var json = parameters.Serialize();
+        var result = json.Deserialize(requestedType);
+        if (result is null) return null;
+
+        var results = new List<ValidationResult>();
+        var success = Validator.TryValidateObject(result, new ValidationContext(result), results, true);
+        return success ? result : throw new RequestValidationException(results);
+    }
+
+    public object? GetFormEntry(Type requestedType, string name)
+    {
+        if (!parameters.TryGetValue(name, out var val))
+            return null;
+
+        // now this might seem stupid, but it works well enough.
+        // and it should even handle JSON object properly (if someone is stupid enough to do that)
+        var j = JToken.Parse(val);
+        return j.ToObject(requestedType);
+    }
+
+    public static Dictionary<string, string> Parse(string input)
+    {
+        var dict = new Dictionary<string, string>();
+        var parameters = input.Split("&");
+
+        foreach (var se in parameters)
+        {
+            var split = se.Split("=");
+            if (split.Length != 2) throw new InvalidOperationException("");
+
+            var key = split.First();
+            var value = split.Last();
+            dict[key] = HttpUtility.UrlDecode(value);
+        }
+
+        return dict;
     }
 }

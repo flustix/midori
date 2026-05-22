@@ -258,9 +258,8 @@ internal partial class ControllerRouteModule<T> : IHttpModule
 
         try
         {
-            var stream = ctx.Request.BodyStream;
             var ct = ctx.Request.Headers["Content-Type"] ?? "";
-            return body = router.GetBodyParser(ct, stream) ?? new StreamRequestBodyContent(stream);
+            return body = router.GetBodyParser(ct, ctx) ?? new StreamRequestBodyContent(ctx);
         }
         catch
         {

@@ -28,7 +28,8 @@ public partial class HttpRouter
         this.services = services;
 
         RegisterBodyParser<JsonRequestBodyContent>("application/json");
-        RegisterBodyParser<MultipartRequestBodyContent>("multipart/form-data", "application/x-www-form-urlencoded");
+        RegisterBodyParser<MultipartRequestBodyContent>("multipart/form-data");
+        RegisterBodyParser<FormUrlEncodedRequestBodyContent>("application/x-www-form-urlencoded");
     }
 
     #region Body Parsers
@@ -36,21 +37,21 @@ public partial class HttpRouter
     public void RegisterBodyParser<T>(params string[] mimetype)
         where T : IRequestBodyContent
     {
-        _ = typeof(T).GetConstructor(BindingFlags.Public, new[] { typeof(Stream) })
-            ?? throw new InvalidOperationException($"{typeof(T).FullName} does not have a stream-only constructor.");
+        _ = typeof(T).GetConstructor(BindingFlags.Public, new[] { typeof(HttpServerContext) })
+            ?? throw new InvalidOperationException($"{typeof(T).FullName} does not have a HttpServerContext-only constructor.");
 
         foreach (var m in mimetype)
             requestBodyParsers[m] = typeof(T);
     }
 
-    public IRequestBodyContent? GetBodyParser(string mime, Stream input)
+    public IRequestBodyContent? GetBodyParser(string mime, HttpServerContext ctx)
     {
         foreach (var (m, t) in requestBodyParsers)
         {
             if (!mime.StartsWith(m))
                 continue;
 
-            return Activator.CreateInstance(t, input) as IRequestBodyContent;
+            return Activator.CreateInstance(t, ctx) as IRequestBodyContent;
         }
 
         return null;
