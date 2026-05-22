@@ -248,4 +248,23 @@ internal partial class ControllerRouteModule<T> : IHttpModule
         Exception getInvalidType(string name, string type)
             => new KeyNotFoundException($"Parameter '{name}' is not a valid '{type}'.");
     }
+
+    private IRequestBodyContent? body;
+
+    private IRequestBodyContent getBody(HttpServerContext ctx)
+    {
+        if (body != null)
+            return body;
+
+        try
+        {
+            var stream = ctx.Request.BodyStream;
+            var ct = ctx.Request.Headers["Content-Type"] ?? "";
+            return body = router.GetBodyParser(ct, stream) ?? new StreamRequestBodyContent(stream);
+        }
+        catch
+        {
+            throw new KeyNotFoundException("Invalid request body.");
+        }
+    }
 }
