@@ -37,7 +37,7 @@ public partial class HttpRouter
     public void RegisterBodyParser<T>(params string[] mimetype)
         where T : IRequestBodyContent
     {
-        _ = typeof(T).GetConstructor(BindingFlags.Public, new[] { typeof(HttpServerContext) })
+        _ = typeof(T).GetConstructor(BindingFlags.Public | BindingFlags.Instance, new[] { typeof(HttpServerContext) })
             ?? throw new InvalidOperationException($"{typeof(T).FullName} does not have a HttpServerContext-only constructor.");
 
         foreach (var m in mimetype)
