@@ -9,9 +9,9 @@ public class HttpHeaderCollection : HttpDictionary
         if (idx == -1)
             throw new ArgumentException("Header does not contain a colon character.");
 
-        var name = header[..idx];
+        var name = header[..idx].Trim().ToLowerInvariant();
         var value = idx < header.Length - 1 ? header[(idx + 1)..] : string.Empty;
 
-        this[name.Trim()] = value.Trim();
+        this[name] = value.Trim();
     }
 }
