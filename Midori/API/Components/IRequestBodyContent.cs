@@ -167,6 +167,9 @@ public class FormUrlEncodedRequestBodyContent : IRequestBodyContent
         if (!parameters.TryGetValue(name, out var val))
             return null;
 
+        if (requestedType == typeof(string))
+            return val;
+
         // now this might seem stupid, but it works well enough.
         // and it should even handle JSON object properly (if someone is stupid enough to do that)
         var j = JToken.Parse(val);
