@@ -2,6 +2,7 @@
 using System.Net.Sockets;
 using System.Security.Authentication;
 using Midori.Logging;
+using Midori.Networking.Collections;
 
 namespace Midori.Networking.WebSockets;
 

@@ -1,4 +1,5 @@
-﻿using Midori.Utils.Extensions;
+﻿using Midori.Networking.Collections;
+using Midori.Utils.Extensions;
 
 namespace Midori.Networking;
 

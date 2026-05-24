@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Midori.Networking.Collections;
 
 namespace Midori.Networking;
 
@@ -11,6 +12,7 @@ public abstract class HttpBase : IDisposable
     protected abstract string MessageHeader { get; }
 
     public HttpHeaderCollection Headers { get; }
+    public HttpCookieCollection Cookies { get; }
 
     protected string HeaderSection
     {
@@ -18,7 +20,7 @@ public abstract class HttpBase : IDisposable
         {
             var buffer = new StringBuilder();
 
-            foreach (var key in Headers.AllKeys)
+            foreach (var key in Headers.Keys)
                 buffer.Append($"{key}: {Headers[key]}{CR_LF}");
 
             buffer.Append(CR_LF);
@@ -43,6 +45,7 @@ public abstract class HttpBase : IDisposable
     internal HttpBase(HttpHeaderCollection headers)
     {
         Headers = headers;
+        Cookies = new HttpCookieCollection();
     }
 
     public async Task WriteToStream(Stream stream)

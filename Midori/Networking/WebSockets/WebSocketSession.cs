@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using Midori.Networking.Collections;
 using Midori.Utils;
 
 namespace Midori.Networking.WebSockets;

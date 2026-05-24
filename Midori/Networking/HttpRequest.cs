@@ -1,4 +1,6 @@
-﻿namespace Midori.Networking;
+﻿using Midori.Networking.Collections;
+
+namespace Midori.Networking;
 
 public class HttpRequest : HttpBase
 {
@@ -18,12 +20,12 @@ public class HttpRequest : HttpBase
         Method = method.ToUpperInvariant();
         Target = target;
         Version = version;
+
+        if (Headers.TryGetValue("Cookie", out var cookie))
+            Cookies.AddContent(cookie);
     }
 
-    internal static HttpRequest ReadRequest(Stream stream)
-    {
-        return HttpParser.Read(stream, parse);
-    }
+    internal static HttpRequest ReadRequest(Stream stream) => HttpParser.Read(stream, parse);
 
     private static HttpRequest parse(string[] headers)
     {

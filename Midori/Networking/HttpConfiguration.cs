@@ -1,5 +1,6 @@
 using System.Net;
 using Midori.API.Components;
+using Midori.Networking.Collections;
 
 namespace Midori.Networking;
 
