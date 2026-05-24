@@ -38,7 +38,7 @@ public class APIInteraction : IDisposable
         if (Request.BodyStream != null && Request.BodyStream != Stream.Null && (Request.ContentType?.StartsWith("multipart/form-data") ?? false))
             parser = MultipartFormDataParser.Parse(Request.BodyStream, Encoding.UTF8);
 
-        var forward = Request.Headers.Get("X-Forwarded-For");
+        var forward = Request.Headers["X-Forwarded-For"];
         RemoteIP = string.IsNullOrEmpty(forward) ? Context.EndPoint!.Address : IPAddress.Parse(forward.Split(",").First());
 
         OnPopulate();
@@ -222,7 +222,7 @@ public class APIInteraction : IDisposable
 
     private bool tryGetHeader(string name, out string value)
     {
-        var header = Request.Headers.Get(name);
+        var header = Request.Headers[name];
 
         if (!string.IsNullOrEmpty(header))
         {
@@ -277,7 +277,7 @@ public class APIInteraction : IDisposable
 
         Response.ContentLength = stream.Length;
         // Response.ContentEncoding = Encoding.UTF8;
-        Response.Headers.Add("Access-Control-Allow-Origin", Request.Headers.Get("Origin") ?? "*");
+        Response.Headers.Add("Access-Control-Allow-Origin", Request.Headers["Origin"] ?? "*");
         Response.Headers.Add("Access-Control-Allow-Methods", string.Join(", ", AllowedMethods));
         Response.Headers.Add("Access-Control-Allow-Headers", string.Join(", ", AllowedHeaders));
 

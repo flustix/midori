@@ -41,7 +41,7 @@ public class HttpConfiguration
 
     public void ApplyHeaders(HttpHeaderCollection response, HttpHeaderCollection? request = null)
     {
-        response.Add("Access-Control-Allow-Origin", AssignRequestOriginToCors ? request?.Get("Origin") ?? "*" : string.Join(", ", AllowedOrigins));
+        response.Add("Access-Control-Allow-Origin", AssignRequestOriginToCors ? request?["Origin"] ?? "*" : string.Join(", ", AllowedOrigins));
         response.Add("Access-Control-Allow-Methods", string.Join(", ", AllowedMethods));
         response.Add("Access-Control-Allow-Headers", string.Join(", ", AllowedHeaders));
     }

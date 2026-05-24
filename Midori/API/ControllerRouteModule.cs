@@ -206,7 +206,7 @@ internal partial class ControllerRouteModule<T> : IHttpModule
                 {
                     ParameterSource.Path => pathParameters.GetValueOrDefault(name),
                     ParameterSource.Query => ctx.Request.QueryParameters.GetValueOrDefault(name),
-                    ParameterSource.Headers => ctx.Request.Headers.Get(name),
+                    ParameterSource.Headers => ctx.Request.Headers[name],
                     _ => throw new ArgumentOutOfRangeException()
                 };
 
