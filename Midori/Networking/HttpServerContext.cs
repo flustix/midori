@@ -7,7 +7,7 @@ public class HttpServerContext : IDisposable
 {
     private TcpClient client { get; }
 
-    internal Stream Stream { get; }
+    public Stream Stream { get; }
 
     public IPEndPoint EndPoint { get; internal set; }
     public IPAddress RemoteIP => EndPoint.Address;

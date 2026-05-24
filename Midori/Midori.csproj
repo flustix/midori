@@ -9,6 +9,7 @@
     <Description>Simple utility lib to avoid copy-pasting the same code.</Description>
     <Authors>flustix</Authors>
     <RepositoryUrl>https://github.com/flustix/midori</RepositoryUrl>
+    <DefineConstants>JETBRAINS_ANNOTATIONS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
