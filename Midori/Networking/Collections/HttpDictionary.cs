@@ -15,6 +15,8 @@ public class HttpDictionary : Dictionary<string, string>
     public bool Contains(string name, string value, StringComparison comparison = StringComparison.CurrentCulture)
     {
         name = name.ToLowerInvariant();
-        return !ContainsKey(name) && this[name]?.Split(',').Any(elm => elm.Trim().Equals(value, comparison)) != null;
+        return ContainsKey(name) && (this[name]?.Split(',').Any(elm => elm.Trim().Equals(value, comparison)) ?? false);
     }
+
+    public new void Add(string key, string value) => base.Add(key.ToLowerInvariant(), value);
 }
