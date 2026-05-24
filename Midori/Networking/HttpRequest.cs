@@ -21,7 +21,7 @@ public class HttpRequest : HttpBase
         Target = target;
         Version = version;
 
-        if (Headers.TryGetValue("Cookie", out var cookie))
+        if (Headers.TryGetValue("cookie", out var cookie))
             Cookies.AddContent(cookie);
     }
 
