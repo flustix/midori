@@ -77,6 +77,14 @@ public class HttpServer : IHostedService
                         ctx = new HttpServerContext(client);
                         processClient(ctx);
                     }
+                    catch (EndOfStreamException)
+                    {
+                        // Client disconnected before full request. We can safely ignore this.
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error(ex, "Error processing client request!", LoggingTarget.Network);
+                    }
                     finally
                     {
                         ctx?.Dispose();
