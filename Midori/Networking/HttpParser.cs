@@ -42,25 +42,39 @@ internal static class HttpParser
 
     private static string[] readHeaders(Stream stream)
     {
-        var buffer = new List<byte>();
+        var buffer = new List<byte>(1024);
+        var state = 0;
 
-        var end = false;
-        var a = add;
-
-        while (!end)
+        while (state < 4)
         {
-            end = stream.ReadByte().EqualTo('\r', a)
-                  && stream.ReadByte().EqualTo('\n', a)
-                  && stream.ReadByte().EqualTo('\r', a)
-                  && stream.ReadByte().EqualTo('\n', a);
+            var b = stream.ReadByte();
+            add(b);
+
+            // header end match: \r\n\r\n
+            state = state switch
+            {
+                0 or 2 when b == '\r' => state + 1,
+                1 or 3 when b == '\n' => state + 1,
+                _ when b == '\r' => 1,
+                _ => 0
+            };
         }
 
-        var bytes = buffer.ToArray();
+        var rawHeaders = Encoding.UTF8.GetString(buffer.ToArray(), 0, buffer.Count - 4);
+        var headers = new List<string>();
 
-        return Encoding.UTF8.GetString(bytes)
-                       .Replace(HttpBase.CR_LF_SP, " ")
-                       .Replace(HttpBase.CR_LF_TB, " ")
-                       .Split(HttpBase.CR_LF, StringSplitOptions.RemoveEmptyEntries);
+        using var reader = new StringReader(rawHeaders);
+
+        while (reader.ReadLine() is { } line)
+        {
+            // check for folds
+            if (line.Length > 0 && (line[0] == ' ' || line[0] == '\t') && headers.Count > 0)
+                headers[^1] += " " + line.TrimStart();
+            else
+                headers.Add(line);
+        }
+
+        return headers.ToArray();
 
         void add(int v)
         {
